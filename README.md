@@ -1,2 +1,2 @@
 # catlasr
-A compilation of R function for the CATLAS project
+A compilation of R functions for the CATLAS project
