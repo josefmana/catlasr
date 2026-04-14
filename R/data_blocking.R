@@ -14,7 +14,9 @@
 #'     \item{stage2_outcome}{Outcomes paired with cues in training stage 2}
 #'     \item{stage3_cue}{Cue presented in training stage 3}
 #'     \item{stage3_outcome}{Outcomes paired with cues in training stage 3}
-#'     \item{test}{Tested cues/cue compounds}
+#'     \item{test_cue}{Tested cues/cue compounds}
+#'     \item{test_outcome}{Correct outcome during the test stage}
+#'     \item{test_preference}{Empirically preferred outcome during the test stage}
 #'   \item{data}{A tibble with 14 rows and 33 columns}
 #'     \item{bibtex}{BibTex code of the article}
 #'     \item{experiment}{Which experiment from the paper?}
