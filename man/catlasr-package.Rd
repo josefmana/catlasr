@@ -4,7 +4,9 @@
 \name{catlasr-package}
 \alias{catlasr}
 \alias{catlasr-package}
-\title{catlasr: What the Package Does (One Line, Title Case)}
+\title{The catlasr package provides CATLAS-specific R infrastructure,
+including experimental design data, theory-dependent models,
+and visual identity functions for manuscript formatting.}
 \description{
 What the package does (one paragraph).
 }

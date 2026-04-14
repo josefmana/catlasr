@@ -2,30 +2,34 @@
 % Please edit documentation in R/apa_style.R
 \name{apa_style}
 \alias{apa_style}
-\title{Create APA Style Table}
+\title{Add APA 7th formattin to a gt table}
 \usage{
-apa_style(gtable)
+apa_style(x, title = " ")
 }
 \arguments{
-\item{gtable}{{gt} table. A table prepared
-with the gt package.}
+\item{x}{\code{gt_tbl} object produced by \code{\link[gt:gt]{gt::gt()}}.}
+
+\item{title}{Character string. The table title, rendered as italic HTML
+above the table. Defaults to a single space (no visible title).}
 }
 \value{
-A {gt} table that is identical to \code{gtable},
-but formatted.
+A \code{gt_tbl} object with APA 7 formatting applied. The object
+remains pipeable, i.e., further \code{\link[gt:gt]{gt::gt()}} calls can be chained after
+\code{apa_style()}.
 }
 \description{
-Puts a {gt} table in the APA 7th styling.
+Applies American Psychological Association (APA) 7th edition table
+formatting to a \code{\link[gt:gt]{gt::gt()}} object.
 }
 \details{
-Taken from
-\url{https://gist.github.com/pdparker/1b61b6d36d09cb295bf286a931990159}.
+The code was adapted from:
+\url{https://www.anthonyschmidt.co/post/2020-06-03-making-apa-tables-with-gt/}.
+It follows the three-line border convention: borders appear at the top of
+the column header, the bottom of the column header, and the bottom of the
+table body. All internal cell borders and the outer frame are suppressed.
+The table title is rendered in italics, flush left.
 }
-\examples{
-\dontrun{
-tibble::tibble(stage_1 = c("A->1", "C->2"), stage_2 = c("AB->1", "CD->2")) |>
-  gt::gt() |>
-  apa_style()
+\seealso{
+\code{\link[gt:gt]{gt::gt()}}, \code{\link[gt:tab_options]{gt::tab_options()}}, \code{\link[gt:tab_style]{gt::tab_style()}}
 }
-
-}
+\concept{formatting}

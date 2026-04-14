@@ -12,12 +12,8 @@ Imports:
     glue,
     lifecycle,
     rlang,
-    purrr,
-    ggdag,
-    grid,
-    ggplot2,
     gt,
-    dplyr
+    tidyselect
 Depends: 
-    R (>= 3.5)
+    R (>= 4.5)
 LazyData: true
