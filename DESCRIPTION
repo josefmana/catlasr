@@ -12,8 +12,10 @@ Imports:
     glue,
     lifecycle,
     rlang,
+    cli,
     gt,
-    tidyselect
+    tidyselect,
+    magick
 Depends: 
     R (>= 4.5)
 LazyData: true
