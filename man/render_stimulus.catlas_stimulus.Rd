@@ -11,32 +11,63 @@
   height = 200,
   font_size = 32,
   font_family = NULL,
+  label_colour = "black",
+  label_position = c("bottom", "top"),
+  label_shift = c(0, 0),
   background = "#c8c8c8"
 )
 }
 \arguments{
-\item{x}{A "catlas_stimulus" object.}
+\item{x}{A \code{catlas_stimulus} object.}
 
-\item{...}{Currently not used.}
+\item{...}{Currently unused; reserved for future expansion.}
 
-\item{width, height}{Numeric. Output dimensions in pixels.}
+\item{width, height}{\code{numeric(1)}. Output dimensions in pixels.}
 
-\item{font_size}{Numeric. Label font size.}
+\item{font_size}{\code{numeric(1)}. Label font size in points.}
 
-\item{font_family}{Character. Font family (NULL = auto-detect).}
+\item{font_family}{\code{character(1)} or \code{NULL}. Font family name (NULL = auto-detect
+by platform).}
 
-\item{background}{Character. Background color.}
+\item{label_colour}{\code{character(1)}. Text colour.}
+
+\item{label_position}{\code{character(1)}. Vertical label placement, \code{"bottom"}
+(default) or \code{"top"}. Partial matching supported.}
+
+\item{label_shift}{\code{numeric(2)}. Horizontal and vertical offset of the label.}
+
+\item{background}{\code{character(1)}. Background colour.}
 }
 \value{
-A "magick-image" object.
+A magick-image object (i.e., S3 class from \pkg{magick}).
 }
 \description{
-Render a CATLAS stimulus using magick
+Binds a text label to a source image, allowing control over layout and
+typography.
+}
+\details{
+The label is vertically aligned to prevent overlap. When placed at the
+bottom, the text baseline sits just above the canvas edge; when placed at
+the top, the text top sits just below the canvas edge. Image scaling
+preserves aspect ratio while fitting the available space.
 }
 \examples{
 \dontrun{
-stim <- catlas_stimulus("Xyline", "path/to/flask.jpg", "cue")
-img  <- render_stimulus(stim)
+# A minimal white PNG to satisfy the file-existence check
+tmp <- tempfile(fileext = ".png")
+magick::image_write(magick::image_blank(1L, 1L, "white"), tmp)
+
+stim <- catlas_stimulus(
+  label      = "Xyline",
+  image_path = tmp,
+  type       = "cue"
+)
+
+# Default: label below the image
+img_bottom  <- render_stimulus(stim)
+
+# Label above image
+img_top <- render_stimulus(stim, label_position = "top")
 }
 
 }

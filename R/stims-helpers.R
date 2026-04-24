@@ -12,39 +12,43 @@ resolve_font <- function(font_family = NULL) {
 
   sysname <- Sys.info()[["sysname"]]
 
-  if (sysname == "Windows") {
-    "Arial"
-  } else if (sysname == "Darwin") {
-    "Helvetica"
-  } else {
-    "sans"
-  }
+  switch(sysname,
+     Windows = "Arial",
+     Darwin = "Helvetica",
+     Linux = "Liberation Sans",
+     "sans"
+  )
 }
 
 #' Write a rendered stimulus to disk
 #'
+#' A thin wrapper of [magick::image_write()] function.
+#'
 #' @param image A magick image object.
 #' @param path Output file path.
+#' @param ... Additional parameters passed to [magick::image_write()].
 #'
 #' @returns Invisibly returns `path`.
 #'
 #' @examples
 #' \dontrun{
-#' stim <- catlas_stimulus("Xyline", "path/to/flask.jpg", "cue")
-#' img  <- render_stimulus(stim)
-#' write_stimulus(img, tempfile(fileext = ".png"))
+#' # A minimal white PNG to satisfy the file-existence check
+#' tmp <- tempfile(fileext = ".png")
+#' magick::image_write(magick::image_blank(1L, 1L, "white"), tmp)
+#'
+#' stim <- catlas_stimulus(
+#'   label      = "Xyline",
+#'   image_path = tmp,
+#'   type       = "cue"
+#' )
+#' print(stim)
+#' write_stimulus(img, "output.png")
 #' }
 #'
 #' @family stimuli
-#' @export
-write_stimulus <- function(image, path) {
-  if (!requireNamespace("magick", quietly = TRUE)) {
-    stop(
-      "Package magick is required.",
-      call. = FALSE
-    )
-  }
 
-  magick::image_write(image, path)
+#' @export
+write_stimulus <- function(image, path, ...) {
+  magick::image_write(image, path, ...)
   invisible(path)
 }

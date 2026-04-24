@@ -2,43 +2,60 @@
 % Please edit documentation in R/stims-constructors.R
 \name{catlas_stimulus}
 \alias{catlas_stimulus}
-\title{Constructor for stimulus images}
+\title{Constructor for CATLAS stimulus object}
 \usage{
-catlas_stimulus(
-  label = character(),
-  image_path = character(),
-  type = c("cue", "outcome"),
-  meta = list()
-)
+catlas_stimulus(label, image_path, type = c("cue", "outcome"), meta = list())
 }
 \arguments{
-\item{label}{Character. Text label shown below the image.}
+\item{label}{\code{character(1)}. Text label paired with the image.}
 
-\item{image_path}{Character. Path to the stimulus file image.}
+\item{image_path}{\code{character(1)}. Path to the source image file (PNG, JPEG,
+or any format supported by \pkg{magick}). The file must exist at
+construction time.}
 
-\item{type}{Character. Either \code{"cue"} or \code{"outcome"}.}
+\item{type}{\code{character(1)}. Stimulus role in the experimental paradigm. One
+of \code{"cue"} or \code{"outcome"}. Partial matching supported.}
 
-\item{meta}{Optional list. Additional metadata.}
+\item{meta}{\code{list}. Optional named list for additional metadata (e.g., trial
+assignment, counterbalancing codes). Not used by the rendering pipeline.}
 }
 \value{
-An object of class "catlas_stimulus".
+An object of class \code{"catlas_stimulus"} (a named list with fields
+\code{label}, \code{image_path}, \code{type}, and \code{meta})
 }
 \description{
-Constructs a stimulus object used in CATLAS experiments. A stimulus binds
-an image (e.g., PNG, JPG) with a text label and metadata describing its
-role (e.g., cue or outcome).
+Constructs a validated \code{catlas_stimulus} object representing a single
+composited stimulus: a source image (e.g., a flask or a cartoon of allergic
+reaction icon) paired with a text label.
 }
+\section{Backend agnosticism}{
+
+\code{catlas_stimulus} stores only plain R scalars. No \pkg{magick} objects are
+embedded, so the rendering backend used by \code{\link[=render_stimulus]{render_stimulus()}} is fully
+swappable without modifying the class.
+}
+
 \examples{
 \dontrun{
+# A minimal white PNG to satisfy the file-existence check
+tmp <- tempfile(fileext = ".png")
+magick::image_write(magick::image_blank(1L, 1L, "white"), tmp)
+
 stim <- catlas_stimulus(
-  label = "Xyline",
-  image_path = "path/to/flask.jpg",
-  type = "cue"
+  label      = "Xyline",
+  image_path = tmp,
+  type       = "cue"
 )
+print(stim)
 }
 
 }
 \seealso{
+\itemize{
+\item \code{\link[=render_stimulus]{render_stimulus()}} to produce the composited image
+\item \code{\link[=write_stimulus]{write_stimulus()}} to persist the result to disk
+}
+
 Other stimuli: 
 \code{\link{print.catlas_stimulus}()},
 \code{\link{render_stimulus}()},

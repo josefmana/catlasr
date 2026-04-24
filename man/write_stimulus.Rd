@@ -4,24 +4,34 @@
 \alias{write_stimulus}
 \title{Write a rendered stimulus to disk}
 \usage{
-write_stimulus(image, path)
+write_stimulus(image, path, ...)
 }
 \arguments{
 \item{image}{A magick image object.}
 
 \item{path}{Output file path.}
+
+\item{...}{Additional parameters passed to \code{\link[magick:editing]{magick::image_write()}}.}
 }
 \value{
 Invisibly returns \code{path}.
 }
 \description{
-Write a rendered stimulus to disk
+A thin wrapper of \code{\link[magick:editing]{magick::image_write()}} function.
 }
 \examples{
 \dontrun{
-stim <- catlas_stimulus("Xyline", "path/to/flask.jpg", "cue")
-img  <- render_stimulus(stim)
-write_stimulus(img, tempfile(fileext = ".png"))
+# A minimal white PNG to satisfy the file-existence check
+tmp <- tempfile(fileext = ".png")
+magick::image_write(magick::image_blank(1L, 1L, "white"), tmp)
+
+stim <- catlas_stimulus(
+  label      = "Xyline",
+  image_path = tmp,
+  type       = "cue"
+)
+print(stim)
+write_stimulus(img, "output.png")
 }
 
 }
