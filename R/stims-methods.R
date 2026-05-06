@@ -79,7 +79,7 @@ render_stimulus.catlas_stimulus <- function(
     label_colour = "black",
     label_position = c("bottom", "top"),
     label_shift = c(0, 0),
-    background = "#c8c8c8"
+    background = "#c1c1c1"
   ) {
   # ── Input validation ────────────────────────────────────────────────────────
   label_position <- match.arg(label_position)

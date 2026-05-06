@@ -14,7 +14,7 @@
   label_colour = "black",
   label_position = c("bottom", "top"),
   label_shift = c(0, 0),
-  background = "#c8c8c8"
+  background = "#c1c1c1"
 )
 }
 \arguments{
