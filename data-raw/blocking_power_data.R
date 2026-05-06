@@ -3,11 +3,11 @@
 library(readr)
 library(here)
 
-designs <- read_delim(here("data-raw", "blocking_power_designs.csv"), delim = ";")
-results <- read_delim(here("data-raw", "blocking_power_results.csv"), delim = ";")
+designs <- read_delim(here("data-raw", "forward_blocking_designs.csv"), delim = ";")
+effects <- read_delim(here("data-raw", "forward_blocking_effects.csv"), delim = ";")
 
-blocking0 <- list(designs = designs, data = results)
+forward_blocking <- list(designs = designs, effects = effects)
 
-usethis::use_data(blocking0, overwrite = TRUE)
+usethis::use_data(forward_blocking, overwrite = TRUE)
 
 # Add export to OSF?
