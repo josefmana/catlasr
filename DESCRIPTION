@@ -1,9 +1,15 @@
 Package: catlasr
-Title: What the Package Does (One Line, Title Case)
+Title: R Infrastructure for CATLAS Experimental Learning Research
 Version: 0.0.0.9000
 Authors@R: 
     person("Josef", "Mana", , "josef.mana@protonmail.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
+Description: Provides datasets, modeling interfaces, and research utilities for
+    the *Conditioning as a Theory of Learning, Attention, Semantics, and more*
+    (CATLAS) project. Includes summaries of associative learning experiments and
+    effect sizes, tools for constructing and rendering experimental stimuli,
+    tools for preprocessing of experimental data, interfaces for computational
+    learning models (TBA) and utilities for producing reproducible analyses and
+    publication-ready outputs.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -17,6 +23,9 @@ Imports:
     tidyselect,
     magick,
     tibble
+Suggests:
+    here,
+    readr
 Depends: 
     R (>= 4.5)
 LazyData: true
