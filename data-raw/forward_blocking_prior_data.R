@@ -1,3 +1,11 @@
+# forward_blocking_prior_data.R
+#
+# Import, validate and save data sets regarding previous studies forward
+# blocking experimental designs (`forward_blocking_designs.csv`) and reported
+# effect sizes (`forward_blocking_effects.csv`), saved the as `fb_designs`
+# and `fb_effects` data via {usethis} with the goal to be distribute them along
+# with the package.
+
 # library(catlasr)
 library(readr)
 library(here)
@@ -14,17 +22,17 @@ forward_blocking_effects_raw <- read_delim(
 )
 
 # --- Validate -----------------------------------------------------------------
-forward_blocking_designs <-
+fb_designs <-
   catlasr:::catlas_designs(forward_blocking_designs_raw) |>
   catlasr:::validate_catlas_designs()
 
-forward_blocking_effects <-
+fb_effects <-
   catlasr:::catlas_effects(forward_blocking_effects_raw) |>
   catlasr:::validate_catlas_effects()
 
 # --- Write --------------------------------------------------------------------
 usethis::use_data(
-  forward_blocking_designs,
-  forward_blocking_effects,
+  fb_designs,
+  fb_effects,
   overwrite = TRUE
 )
