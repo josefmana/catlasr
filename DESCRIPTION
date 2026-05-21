@@ -25,7 +25,10 @@ Imports:
     tibble
 Suggests:
     here,
-    readr
+    readr,
+    tidyverse,
+    jatosR,
+    jsonlite
 Depends: 
     R (>= 4.5)
 LazyData: true
