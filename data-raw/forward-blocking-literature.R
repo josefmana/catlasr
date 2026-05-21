@@ -1,10 +1,10 @@
-# forward_blocking_prior_data.R
+# forward-blocking-literature.R
 #
-# Import, validate and save data sets regarding previous studies forward
-# blocking experimental designs (`forward_blocking_designs.csv`) and reported
-# effect sizes (`forward_blocking_effects.csv`), saved the as `fb_designs`
-# and `fb_effects` data via {usethis} with the goal to be distribute them along
-# with the package.
+# Import, validate and save data sets regarding studies forward blocking
+# experimental designs (`forward_blocking_designs.csv`) and reported effect
+# sizes (`forward_blocking_effects.csv`) from available literature, saved the as
+# `fb_designs` and `fb_effects` data via {usethis} with the goal to be
+# distribute them along with the package.
 
 # library(catlasr)
 library(readr)
