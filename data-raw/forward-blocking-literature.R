@@ -10,6 +10,7 @@
 library(readr)
 library(here)
 
+
 # --- Read ---------------------------------------------------------------------
 forward_blocking_designs_raw <- read_delim(
   here("data-raw", "forward_blocking_designs.csv"),
@@ -21,6 +22,7 @@ forward_blocking_effects_raw <- read_delim(
   delim = ";"
 )
 
+
 # --- Validate -----------------------------------------------------------------
 fb_designs <-
   catlasr:::catlas_designs(forward_blocking_designs_raw) |>
@@ -29,6 +31,7 @@ fb_designs <-
 fb_effects <-
   catlasr:::catlas_effects(forward_blocking_effects_raw) |>
   catlasr:::validate_catlas_effects()
+
 
 # --- Write --------------------------------------------------------------------
 usethis::use_data(
