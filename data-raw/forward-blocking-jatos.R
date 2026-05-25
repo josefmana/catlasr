@@ -21,13 +21,17 @@ library(jsonlite)
 
 
 # --- 0. Set-up ----------------------------------------------
+save_emails <- FALSE
+study_id    <- "catlas_[01]"
+
 url <- "https://jatos.mindprobe.eu"
 tok <- Sys.getenv("mindprobe_catlas_token") # Saved via usethis::edit_r_environ()
-bid <- c(28758)
+bid <- c(29488)
 
 .meta_cols <- c(
-  "id", "email", "sex", "age",
-  "width", "height", "browser", "browser_version", "mobile", "os", "vsync_rate"
+  "id", "sex", "age",
+  "width", "height", "browser", "browser_version",
+  "os", "vsync_rate"
 )
 
 .resp_cols <- c(
@@ -37,25 +41,70 @@ bid <- c(28758)
   "correct_outcome", "is_correct", "timed_out"
 )
 
-.cues_map <- list(
-  A  = "A",           AB = c("AB", "BA"),
-  BK = c("BK", "KB"), BN = c("BN", "NB"), BT = c("BT", "TB"),
-  C  = "C",           CD = c("CD", "DC"),
-  DK = c("DK", "KD"), DN = c("DN", "ND"), DQ = c("DQ", "QD"),
-  E  = "E",           EF = c("EF", "FE"),
-  FN = c("FN", "NF"), FQ = c("FQ", "QF"), FT = c("FT", "TF"),
-  G  = "G",           GH = c("GH", "HG"),
-  HK = c("HK", "KH"), HQ = c("HQ", "QH"), HT = c("HT", "TH"),
-  I  = "I",           JK = c("JK", "KJ"),
-  L  = "L",           MN = c("MN", "NM"),
-  O  = "O",           PQ = c("PQ", "QP"),
-  R  = "R",           ST = c("ST", "TS"),
-  UV = c("UV", "VU"),
-  WX = c("WX", "XW"),
-  YZ = c("YZ", "ZY"),
-  alphabeta = c("alphabeta", "betaalpha")
+.stim_labs <- c(
+  LETTERS, "alpha", "beta", # cues
+  paste0("o", 1:4)          # outcomes
 )
 
+.cues_map <- tribble(
+  ~label, ~cue1, ~cue2, ~cues_reversed,
+  "A" , "A",  NA, NA,
+  "AB", "A", "B", FALSE,
+  "BA", "A", "B", TRUE,
+  "BK", "B", "K", FALSE,
+  "KB", "B", "K", TRUE,
+  "BN", "B", "N", FALSE,
+  "NB", "B", "N", TRUE,
+  "BT", "B", "T", FALSE,
+  "TB", "B", "T", TRUE,
+  "C" , "C",  NA, NA,
+  "CD", "C", "D", FALSE,
+  "DC", "C", "D", TRUE,
+  "DK", "D", "K", FALSE,
+  "KD", "D", "K", TRUE,
+  "DN", "D", "N", FALSE,
+  "ND", "D", "N", TRUE,
+  "DQ", "D", "Q", FALSE,
+  "QD", "D", "Q", TRUE,
+  "E" , "E",  NA, NA,
+  "EF", "E", "F", FALSE,
+  "FE", "E", "F", TRUE,
+  "FN", "F", "N", FALSE,
+  "NF", "F", "N", TRUE,
+  "FQ", "F", "Q", FALSE,
+  "QF", "F", "Q", TRUE,
+  "FT", "F", "T", FALSE,
+  "TF", "F", "T", TRUE,
+  "G" , "G",  NA, NA,
+  "GH", "G", "H", FALSE,
+  "HG", "G", "H", TRUE,
+  "HK", "H", "K", FALSE,
+  "KH", "H", "K", TRUE,
+  "HQ", "H", "Q", FALSE,
+  "QH", "H", "Q", TRUE,
+  "HT", "H", "T", FALSE,
+  "TH", "H", "T", TRUE,
+  "I" , "I",  NA, NA,
+  "JK", "J", "K", FALSE,
+  "KJ", "J", "K", TRUE,
+  "L" , "L",  NA, NA,
+  "MN", "M", "N", FALSE,
+  "NM", "M", "N", TRUE,
+  "O" , "O",  NA, NA,
+  "PQ", "P", "Q", FALSE,
+  "QP", "P", "Q", TRUE,
+  "R" , "R",  NA, NA,
+  "ST", "S", "T", FALSE,
+  "TS", "S", "T", TRUE,
+  "UV", "U", "V", FALSE,
+  "VU", "U", "V", TRUE,
+  "WX", "W", "X", FALSE,
+  "XW", "W", "X", TRUE,
+  "YZ", "Y", "Z", FALSE,
+  "ZY", "Y", "Z", TRUE,
+  "alphabeta", "alpha", "beta", FALSE,
+  "betaalpha", "alpha", "beta", TRUE
+)
 
 raw2json <- function(x) {
   output <- gsub("}{", "},{", x, fixed = TRUE)
@@ -114,13 +163,25 @@ jatos_valid_run <-
   pull(valid)
 
 cli::cli_alert_info(paste0(
-  "From a total of {length(jatos_valid_run)} JATOS runners, {.strong ",
-  "{sum(jatos_valid_run)}} contains valid jsPsych data and will be processed ",
+  "From a total of {length(jatos_valid_run)} JATOS runner{?s}, {.strong ",
+  "{sum(jatos_valid_run)}} sampled valid jsPsych data and will be processed ",
   "further."
 ))
 
 
 # --- 4. Extract meta-data -----------------------------------------------------
+if (save_emails) {
+  emails_csv <- here::here("data-raw", glue::glue("{study_id}_emails.csv"))
+  cli::cli_alert_info(
+    "Writing ID/e-mail pairs to {.file {emails_csv}}."
+  )
+
+  jspsych_data_all |>
+    select(id, email) |>
+    slice(which(jatos_valid_run)) |>
+    write_csv(emails_csv)
+}
+
 meta_data <-
   jspsych_data_all |>
   select(all_of(.meta_cols)) |>
@@ -128,51 +189,44 @@ meta_data <-
   fill(everything(), .direction = "downup") |>
   distinct(id, .keep_all = TRUE) |>
   ungroup() |>
-  mutate(age = as.numeric(age))
+  mutate(age = as.numeric(age)) |>
+  slice(which(jatos_valid_run))
 
 
-# --- 5. Extract stimulus mappings ---------------------------------------------
-
-# TBA after a bug in catlaslab is solved
+# --- 5. Extract stimuli mappings ----------------------------------------------
+stimuli_mappings <-
+  jspsych_data_all |>
+  filter(trial_type == "stimuli-map") |>
+  mutate(
+    map = map2(cueMap, outcomeMap, function(x, y) {
+      c <- as.data.frame(fromJSON(x))
+      o <- as.data.frame(fromJSON(y))
+      bind_cols(c, o)
+    })
+  ) |>
+  unnest(map) |>
+  select(id, all_of(.stim_labs)) |>
+  mutate(
+    across(o1:o4, \(x) str_extract(x, "^[^_]+"), .names = "{.col}_context"),
+    across(o1:o4, \(x) str_extract(x, "[^_]+$"))
+  )
 
 
 # --- 6. Extract response data -------------------------------------------------
 raw_response_data <-
   jspsych_data_all |>
-  #filter(trial_type == "experiment-trial") |>
-  filter(!is.na(stage)) |> # Cannot use the trial_type currently due to a bug in experiment code; to be solved within catlaslab
+  filter(trial_type == "experiment-trial") |>
   select(all_of(.resp_cols)) |>
-  mutate(
-    cues_raw = cues,
-    cues = {
-      opts <- names(.cues_map)
-      choose <- map_int(cues, \(x) which(map_lgl(.cues_map, \(y) x %in% y)))
-      opts[choose]
-    },
-    cues_reversed = if_else(cues_raw == cues, FALSE, TRUE),
-    .after = cues
+  left_join(.cues_map, by = c("cues" = "label")) |>
+  relocate(starts_with("cue"), .after = type)
+
+
+# --- 7. Construct valid CATLAS jatos raw data bundle --------------------------
+fb_online_replication <-
+  catlasr:::catlas_jatos_rawdata(
+    meta    = meta_data,
+    stimuli = stimuli_mappings,
+    trials  = raw_response_data
   ) |>
-  select(-cues_raw)
-
-
-# --- 7. Validate response against meta data -----------------------------------
-meta_ids <- unique(meta_data$id)
-resp_ids <- unique(raw_response_data$id)
-
-missing_meta <- resp_ids[!resp_ids %in% meta_ids]
-missing_resp <- meta_ids[!meta_ids %in% resp_ids]
-
-if (!is_empty(missing_meta)) {
-  cli::cli_alert_danger("Some participants have responses but no meta-data recorded.")
-  cli::cli_alert_info("Double-check id{?s} {as.character(missing_meta)}")
-}
-
-if (!is_empty(missing_resp)) {
-  cli::cli_alert_danger("Some participants have meta-data but no responses recorded.")
-  cli::cli_alert_info("Double-check id{?s} {as.character(missing_resp)}")
-}
-
-
-# --- 8. Construct valid CATLAS response data ----------------------------------
-
-# TBA after jatoslab bugs are sorted out
+  catlasr:::validate_catlas_jatos_rawdata()
+  #catlasr:::validate_forward_blocking_rawdata()

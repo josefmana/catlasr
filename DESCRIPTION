@@ -22,7 +22,8 @@ Imports:
     gt,
     tidyselect,
     magick,
-    tibble
+    tibble,
+    purrr
 Suggests:
     here,
     readr,

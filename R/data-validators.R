@@ -1,3 +1,5 @@
+# --- catlas_literature components ---------------------------------------------
+
 # Columns that define catlas_designs()
 .required_design_cols <- c(
   "design",
@@ -49,22 +51,23 @@
   "diagnostic"
 )
 
-#' Validate shared constraints of any `catlas_data` object
+
+#' Validate shared constraints of any `catlas_literature` object
 #'
 #' Performs structural checks shared across all CATLAS data
 #' subclasses. Subclass validators should call this validator
 #' first and then add their own domain-specific constraints.
 #'
-#' @param x A `catlas_data` object.
+#' @param x A `catlas_literature` object.
 #'
 #' @returns `x` invisibly on success, otherwise throws an
 #'   informative error.
 #'
 #' @noRd
-validate_catlas_data <- function(x) {
-  if (!inherits(x, "catlas_data")) {
+validate_catlas_literature <- function(x) {
+  if (!inherits(x, "catlas_literature")) {
     cli::cli_abort(c(
-      "`x` must inherit from {.cls catlas_data}."
+      "`x` must inherit from {.cls catlas_literature}."
     ))
   }
 
@@ -85,7 +88,7 @@ validate_catlas_data <- function(x) {
 
 #' Validate constraints of any `catlas_designs` object
 #'
-#' Applies shared `catlas_data` checks followed by validation
+#' Applies shared `catlas_literature` checks followed by validation
 #' specific to forward blocking design specifications.
 #'
 #' @param x A `catlas_designs` object.
@@ -95,7 +98,7 @@ validate_catlas_data <- function(x) {
 #'
 #' @noRd
 validate_catlas_designs <- function(x) {
-  x <- validate_catlas_data(x)
+  x <- validate_catlas_literature(x)
 
   missing_cols <- setdiff(.required_design_cols, names(x))
 
@@ -127,7 +130,7 @@ validate_catlas_designs <- function(x) {
 
 #' Validate constraints of any `catlas_effects` object
 #'
-#' Applies shared `catlas_data` checks followed by validation
+#' Applies shared `catlas_literature` checks followed by validation
 #' specific to summarized empirical effect data.
 #'
 #' @param x A `catlas_effects` object.
@@ -137,7 +140,7 @@ validate_catlas_designs <- function(x) {
 #'
 #' @noRd
 validate_catlas_effects <- function(x) {
-  x <- validate_catlas_data(x)
+  x <- validate_catlas_literature(x)
 
   missing_cols <- setdiff(.required_effects_cols, names(x))
 
@@ -203,15 +206,15 @@ validate_catlas_effects <- function(x) {
 }
 
 
-#' Test whether an object inherits from `catlas_data`
+#' Test whether an object inherits from `catlas_literature`
 #'
 #' @param x Any R object.
 #'
-#' @returns `TRUE` iff `x` inherits from `"catlas_data"`.
+#' @returns `TRUE` iff `x` inherits from `"catlas_literature"`.
 #'
 #' @noRd
-is_catlas_data <- function(x) {
-  inherits(x, "catlas_data")
+is_catlas_literature <- function(x) {
+  inherits(x, "catlas_literature")
 }
 
 
@@ -236,4 +239,224 @@ is_catlas_designs <- function(x) {
 #' @noRd
 is_catlas_effects <- function(x) {
   inherits(x, "catlas_effects")
+}
+
+
+# --- catlas_rawdata components ------------------------------------------------
+
+# Participant-level metadata (one row per participant)
+.required_rawdata_meta_cols <- c(
+  "id",
+  "sex",
+  "age",
+  "width",
+  "height",
+  "os"
+)
+
+# Raw trial responses (one row per trial)
+.required_rawdata_trials_cols <- c(
+  "id",
+  "stage",
+  "block",
+  "type",
+  "cue1",
+  "cue2",
+  "cues_reversed",
+  "response",
+  "confidence",
+  "rt1",
+  "rt2",
+  "correct_outcome",
+  "is_correct",
+  "timed_out"
+)
+
+
+#' Validate shared constraints of any `catlas_rawdata` object
+#'
+#' Checks that the object is a properly formed three-component bundle
+#' and that participant IDs are consistent across all three components.
+#' Platform-specific validators should call this function first.
+#'
+#' @param x A `catlas_rawdata` object.
+#'
+#' @details
+#' Rules:
+#' * All three components (`meta`, `stimuli`, `trials`) must exist and
+#'   be non-empty tibbles.
+#' * Each component must contain its required columns.
+#' * `meta$id` and `stimuli$id` must each be unique (one row per participant).
+#' * Every ID in `trials` must exist in `meta`.
+#' * Every ID in `stimuli` must exist in `meta`.
+#' * IDs present in `meta` but absent from `trials` or `stimuli` raise
+#'   a warning, not a structural error.
+#'
+#' @returns `x` invisibly on success, otherwise throws an informative error.
+#'
+#' @noRd
+validate_catlas_rawdata <- function(x) {
+  if (!inherits(x, "catlas_rawdata")) {
+    cli::cli_abort("`x` must inherit from {.cls catlas_rawdata}.")
+  }
+
+  # Component existence and type
+  required_components <- c("meta", "stimuli", "trials")
+  missing_components  <- setdiff(required_components, names(x))
+
+  if (length(missing_components) > 0L) {
+    cli::cli_abort(c(
+            "`catlas_rawdata` is missing required component{?s}.",
+      "x" = "Missing: {missing_components}."
+    ))
+  }
+
+  purrr::walk(required_components, function(comp) {
+    if (!tibble::is_tibble(x[[comp]])) {
+      cli::cli_abort(c(
+              "`{comp}` must be a tibble.",
+        "i" = "Got {.cls {class(x[[comp]])}}."
+      ))
+    }
+    if (nrow(x[[comp]]) == 0L) {
+      cli::cli_abort("`{comp}` must contain at least one row.")
+    }
+  })
+
+  # Required columns
+  .assert_cols <- function(component, required) {
+    missing <- setdiff(required, names(x[[component]]))
+    if (length(missing) > 0L) {
+      cli::cli_abort(c(
+              "`{component}` is missing required column{?s}.",
+        "x" = "Missing: {missing}."
+      ))
+    }
+  }
+
+  .required_rawdata_stimuli_cols <- c(
+    "id",
+    unique(x$trials$cue1),
+    unique(x$trials$correct_outcome)
+  )
+
+  .assert_cols("meta",    .required_rawdata_meta_cols)
+  .assert_cols("stimuli", .required_rawdata_stimuli_cols)
+  .assert_cols("trials",  .required_rawdata_trials_cols)
+
+  # ID alignment
+  meta_ids    <- x$meta$id
+  stimuli_ids <- x$stimuli$id
+  trials_ids  <- unique(x$trials$id)
+
+  if (anyDuplicated(meta_ids)) {
+    cli::cli_abort(c(
+            "`meta$id` must be unique (one row per participant).",
+      "x" = "Duplicated IDs found."
+    ))
+  }
+  if (anyDuplicated(stimuli_ids)) {
+    cli::cli_abort(c(
+            "`stimuli$id` must be unique (one row per participant).",
+      "x" = "Duplicated ID{?s} found: {unique(stimuli_ids[duplicated(stimuli_ids)])}."
+    ))
+  }
+
+  orphan_trials   <- setdiff(trials_ids, meta_ids)
+  orphan_stimuli  <- setdiff(stimuli_ids, meta_ids)
+  meta_no_trials  <- setdiff(meta_ids, trials_ids)
+  meta_no_stimuli <- setdiff(meta_ids, stimuli_ids)
+
+  if (length(orphan_trials) > 0L) {
+    cli::cli_abort(c(
+            "Some `trials` IDs have no corresponding `meta` entry.",
+      "x" = "Unmatched ID{?s}: {as.character(orphan_trials)}."
+    ))
+  }
+  if (length(orphan_stimuli) > 0L) {
+    cli::cli_abort(c(
+            "Some `stimuli` IDs have no corresponding `meta` entry.",
+      "x" = "Unmatched ID{?s}: {as.character(orphan_stimuli)}."
+    ))
+  }
+  if (length(meta_no_trials) > 0L) {
+    cli::cli_warn(c(
+            "Some participants have metadata but no trial responses.",
+      "i" = "IDs: {as.character(meta_no_trials)}."
+    ))
+  }
+  if (length(meta_no_stimuli) > 0L) {
+    cli::cli_warn(c(
+            "Some participants have metadata but no stimulus mappings.",
+      "i" = "IDs: {as.character(meta_no_stimuli)}."
+    ))
+  }
+
+  invisible(x)
+}
+
+
+#' Validate constraints of any `catlas_jatos_rawdata` object
+#'
+#' Calls [validate_catlas_rawdata()] for shared structural checks,
+#' then enforces JATOS- and jsPsych-specific constraints.
+#'
+#' @param x A `catlas_jatos_rawdata` object.
+#'
+#' @returns `x` invisibly on success, otherwise throws an informative
+#'   error.
+#'
+#' @details
+#' Additional rules:
+#' * Additional metadata columns must be present.
+#' * Aborts if email is present in the data to ensure anonymity before saving.
+#' * `meta$age` must be numeric and plausible (18–100); out-of-range
+#'   values raise a warning, not an error, to accommodate edge cases.
+#' * `trials$rt1` and `trials$rt2` must be non-negative.
+#' * Stimulus-label columns must all be present in `stimuli`.
+#'
+#'
+#' @noRd
+validate_catlas_jatos_rawdata <- function(x) {
+  x <- validate_catlas_rawdata(x)
+
+  .jatos_required_meta_cols <- c("browser", "browser_version", "os", "vsync_rate")
+
+  missing  <- setdiff(.jatos_required_meta_cols, names(x$meta))
+  if (length(missing) > 0L) {
+    cli::cli_abort(c(
+            "`meta` is missing column{?s} required  for `catlas_jatos_rawdata`.",
+      "x" = "Missing columns: {missing}."
+    ))
+  }
+
+  if ("email" %in% names(x$meta)) {
+    cli::cli_abort(
+            "Data must be anonymised.",
+      "x" = "`meta` contains pasticipants' emails."
+    )
+  }
+
+  if (!is.numeric(x$meta$age)) {
+    cli::cli_abort(c(
+            "`meta$age` must be numeric.",
+      "i" = "Got {.cls {class(x$meta$age)}}."
+    ))
+  }
+  if (any(x$meta$age < 18 | x$meta$age > 100, na.rm = TRUE)) {
+    cli::cli_warn(c(
+      "Some `meta$age` values fall outside [18, 100].",
+      "i" = "Verify participant age coding."
+    ))
+  }
+
+  if (any(x$trials$rt1 < 0, na.rm = TRUE) ||
+      any(x$trials$rt2 < 0, na.rm = TRUE)) {
+    cli::cli_abort(c(
+            "Negative RT values detected in `trials`.",
+      "x" = "`rt1` and `rt2` must be non-negative."
+    ))
+  }
+
+  invisible(x)
 }
