@@ -218,7 +218,8 @@ raw_response_data <-
   filter(trial_type == "experiment-trial") |>
   select(all_of(.resp_cols)) |>
   left_join(.cues_map, by = c("cues" = "label")) |>
-  relocate(starts_with("cue"), .after = type)
+  relocate(starts_with("cue"), .after = type) |>
+  select(-cues)
 
 
 # --- 7. Construct valid CATLAS jatos raw data bundle --------------------------
@@ -228,5 +229,12 @@ fb_online_replication <-
     stimuli = stimuli_mappings,
     trials  = raw_response_data
   ) |>
-  catlasr:::validate_catlas_jatos_rawdata()
-  #catlasr:::validate_forward_blocking_rawdata()
+  catlasr:::validate_catlas_jatos_rawdata() |>
+  catlasr:::validate_forward_blocking_rawdata()
+
+
+# --- 8. Save the data bundle --------------------------------------------------
+usethis::use_data(
+  fb_online_replication,
+  overwrite = TRUE
+)

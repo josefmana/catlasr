@@ -23,7 +23,9 @@ Imports:
     tidyselect,
     magick,
     tibble,
-    purrr
+    purrr,
+    dplyr,
+    tidyr
 Suggests:
     here,
     readr,
