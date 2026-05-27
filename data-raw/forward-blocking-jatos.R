@@ -36,9 +36,10 @@ bid <- c(29488)
 
 .resp_cols <- c(
   "id",
-  "stage", "block", "type",
-  "cues", "response", "confidence", "rt1", "rt2",
-  "correct_outcome", "is_correct", "timed_out"
+  "stage", "block", "type", "cues",
+  "response", "is_correct", "confidence",
+  "rt1", "rt2",
+  "timed_out"
 )
 
 .stim_labs <- c(
@@ -223,7 +224,7 @@ raw_response_data <-
 
 
 # --- 7. Construct valid CATLAS jatos raw data bundle --------------------------
-fb_online_replication <-
+fb_replication_online <-
   catlasr:::catlas_jatos_rawdata(
     meta    = meta_data,
     stimuli = stimuli_mappings,
@@ -235,6 +236,6 @@ fb_online_replication <-
 
 # --- 8. Save the data bundle --------------------------------------------------
 usethis::use_data(
-  fb_online_replication,
+  fb_replication_online,
   overwrite = TRUE
 )

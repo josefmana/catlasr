@@ -264,11 +264,10 @@ is_catlas_effects <- function(x) {
   "cue2",
   "cues_reversed",
   "response",
+  "is_correct",
   "confidence",
   "rt1",
   "rt2",
-  "correct_outcome",
-  "is_correct",
   "timed_out"
 )
 
@@ -459,4 +458,16 @@ validate_catlas_jatos_rawdata <- function(x) {
   }
 
   invisible(x)
+}
+
+
+#' Test whether an object inherits from `catlas_rawdata`
+#'
+#' @param x Any R object.
+#'
+#' @returns `TRUE` iff `x` inherits from `"catlas_rawdata"`.
+#'
+#' @noRd
+is_catlas_rawdata <- function(x) {
+  inherits(x, "catlas_rawdata")
 }

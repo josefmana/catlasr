@@ -56,10 +56,6 @@ validate_forward_blocking_rawdata <- function(x) {
             "Expected experimental stage{?s} absent from `trials$stage`.",
       "x" = "Missing: {missing_stages}."
     ))
-  } else {
-    cli::cli_alert_success(
-      "`trials$stage` contains all required stages."
-    )
   }
 
   # Per-participant trial counts
@@ -69,17 +65,11 @@ validate_forward_blocking_rawdata <- function(x) {
 
   low_count  <- trial_counts[trial_counts$n < min_trials, , drop = FALSE]
   high_count <- trial_counts[trial_counts$n > max_trials, , drop = FALSE]
-  max_count  <- trial_counts[trial_counts$n == max_trials, , drop = FALSE]
 
   if (nrow(low_count) > 0L) {
     cli::cli_warn(c(
             "Some participants have suspiciously few trials (<{min_trials}).",
       "i" = "Problematic IDs: {as.character(low_count$id)}."
-    ))
-  } else {
-    cli::cli_alert_success(paste0(
-      "All participants have at minimum {min_trials} recorded ",
-      "trials."
     ))
   }
 
@@ -88,17 +78,7 @@ validate_forward_blocking_rawdata <- function(x) {
             "Some participants have unrealistically many trials (>{max_trials}).",
       "i" = "Problematic IDs: {as.character(high_count$id)}."
     ))
-  } else {
-    cli::cli_alert_success(paste0(
-      "None of the participants has higher than the possible maximum of ",
-      "{max_trials} recorded trials."
-    ))
   }
-
-  cli::cli_alert_success(paste0(
-    "Out of the {nrow(trial_counts)} total participants, {nrow(max_count)} ",
-    "completed the experiment in full."
-  ))
 
   # Cue-type coverage per participant
   cue_coverage <- x$trials |>
@@ -112,28 +92,20 @@ validate_forward_blocking_rawdata <- function(x) {
             "Some participants have fewer than {`.fb_min_cue_types`} distinct cue types.",
       "i" = "Problematic IDs: {as.character(low_cue$id)}."
     ))
-  } else {
-    cli::cli_alert_success(
-      "All participant have been presented all required distinct cue types."
-    )
   }
 
   # Outcome-type coverage per participant
   out_coverage <- x$trials |>
     dplyr::group_by(.data$id) |>
-    dplyr::summarise(n_out_types = dplyr::n_distinct(.data$correct_outcome), .groups = "drop")
+    dplyr::summarise(n_out_types = dplyr::n_distinct(.data$response), .groups = "drop")
 
   low_out <- out_coverage[out_coverage$n_out_types < .fb_min_outcome_types, ]
 
   if (nrow(low_out) > 0L) {
     cli::cli_warn(c(
-            "Some participants have fewer than {`.fb_min_out_types`} distinct outcome types.",
+            "Some participants utilised less than {`.fb_min_out_types`} outcome types.",
       "i" = "Problematic IDs: {as.character(low_out$id)}."
     ))
-  } else {
-    cli::cli_alert_success(
-      "All participant have been presented all required distinct outcome types."
-    )
   }
 
   # Duplications in stimuli assignment
@@ -149,10 +121,6 @@ validate_forward_blocking_rawdata <- function(x) {
             "Some participants have duplicated stimuli ty stimulus type assignments.",
       "i" = "Problematic IDs: {as.character(duplicated_counts$id)}."
     ))
-  } else {
-    cli::cli_alert_success(
-      "No stimulus assignment duplication was detected in the data."
-    )
   }
 
   # Left-right counterbalancing of compound cues
@@ -170,10 +138,6 @@ validate_forward_blocking_rawdata <- function(x) {
       "i" = "See the problematic cases below:",
       format(counterimbalancing)
     ))
-  } else {
-    cli::cli_alert_success(
-      "No left/right counterbalancing was detected in presented cue coumpounds."
-    )
   }
 
   invisible(x)
