@@ -7,6 +7,7 @@
 #' A tibble with 8 rows and 8 columns:
 #' \describe{
 #'   \item{design}{Design designation}
+#'   \item{bibtex}{BibTex code of a representative article}
 #'   \item{stage1_cue}{Cues presented in training stage 1}
 #'   \item{stage1_outcome}{Outcomes paired with cues in training stage 1}
 #'   \item{stage2_cue}{Cue presented in training stage 2}

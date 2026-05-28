@@ -3,6 +3,7 @@
 # Columns that define catlas_designs()
 .required_design_cols <- c(
   "design",
+  "bibtex",
   "stage1_cue",
   "stage1_outcome",
   "stage2_cue",
@@ -47,7 +48,7 @@
 
 # Experimental procedure cover stories in catlas_effects()
 .allowed_story_types <- c(
-  "causal",
+  "predictive",
   "diagnostic"
 )
 
