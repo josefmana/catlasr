@@ -13,14 +13,14 @@
 #' @param meta `list`. Optional named list for additional metadata (e.g., trial
 #'   assignment, counterbalancing codes). Not used by the rendering pipeline.
 #'
-#' @section Backend agnosticism:
+#' @details
 #' `catlas_stimulus` stores only plain R scalars. No \pkg{magick} objects are
 #' embedded, so the rendering backend used by [render_stimulus()] is fully
 #' swappable without modifying the class.
 #'
 #' @seealso
 #' - [render_stimulus()] to produce the composited image
-#' - [write_stimulus()] to persist the result to disk
+#' - [write_stimulus()] to save the result to disk
 #'
 #' @returns An object of class `"catlas_stimulus"` (a named list with fields
 #'   `label`, `image_path`, `type`, and `meta`)

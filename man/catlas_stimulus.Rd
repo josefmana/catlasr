@@ -28,13 +28,11 @@ Constructs a validated \code{catlas_stimulus} object representing a single
 composited stimulus: a source image (e.g., a flask or a cartoon of allergic
 reaction icon) paired with a text label.
 }
-\section{Backend agnosticism}{
-
+\details{
 \code{catlas_stimulus} stores only plain R scalars. No \pkg{magick} objects are
 embedded, so the rendering backend used by \code{\link[=render_stimulus]{render_stimulus()}} is fully
 swappable without modifying the class.
 }
-
 \examples{
 \dontrun{
 # A minimal white PNG to satisfy the file-existence check
@@ -53,7 +51,7 @@ print(stim)
 \seealso{
 \itemize{
 \item \code{\link[=render_stimulus]{render_stimulus()}} to produce the composited image
-\item \code{\link[=write_stimulus]{write_stimulus()}} to persist the result to disk
+\item \code{\link[=write_stimulus]{write_stimulus()}} to save the result to disk
 }
 
 Other stimuli: 

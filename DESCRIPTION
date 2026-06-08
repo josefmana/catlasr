@@ -25,13 +25,18 @@ Imports:
     tibble,
     purrr,
     dplyr,
-    tidyr
+    tidyr,
+    metaSDT
 Suggests:
     here,
     readr,
     tidyverse,
     jatosR,
-    jsonlite
+    jsonlite,
+    knitr,
+    rmarkdown,
+    osfr
 Depends: 
     R (>= 4.5)
 LazyData: true
+VignetteBuilder: knitr
