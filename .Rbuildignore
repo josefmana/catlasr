@@ -6,3 +6,5 @@
 ^\.positai$
 ^\.claude$
 ^\.github$
+^_pkgdown\.yml$
+^pkgdown$
