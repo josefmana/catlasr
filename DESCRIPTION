@@ -3,7 +3,7 @@ Title: R Infrastructure for CATLAS Experimental Learning Research
 Version: 0.0.0.9000
 Authors@R: 
     person("Josef", "Mana", , "josef.mana@protonmail.com", role = c("aut", "cre"))
-Description: Provides datasets, modeling interfaces, and research utilities for
+Description: Provides datasets, modelling interfaces, and research utilities for
     the *Conditioning as a Theory of Learning, Attention, Semantics, and more*
     (CATLAS) project. Includes summaries of associative learning experiments and
     effect sizes, tools for constructing and rendering experimental stimuli,
@@ -15,28 +15,28 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports: 
-    glue,
-    lifecycle,
-    rlang,
     cli,
-    gt,
-    tidyselect,
-    magick,
-    tibble,
-    purrr,
     dplyr,
+    magick,
+    purrr,
+    rlang,
+    stats,
+    tibble,
     tidyr,
-    metaSDT
+    tidyselect,
+    utils
 Suggests:
+    glue,
+    gt,
     here,
-    readr,
-    tidyverse,
     jatosR,
     jsonlite,
     knitr,
+    osfr,
+    readr,
     rmarkdown,
-    osfr
+    stringr,
+    tidyverse
 Depends: 
     R (>= 4.5)
-LazyData: true
 VignetteBuilder: knitr
