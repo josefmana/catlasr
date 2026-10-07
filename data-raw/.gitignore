@@ -1,1 +1,4 @@
-*.csv
+# Ignore everything but R code and `.gitignore` itself
+*
+!.gitignore
+!*.R
