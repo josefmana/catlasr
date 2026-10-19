@@ -38,7 +38,9 @@ for the three-stage allergy task. Together with \code{blocks}, the \code{trial_t
 are used to derive the expected trial count.}
 
 \item{origin}{Named list comprising of \code{platform} (one of \code{"JATOS"},
-\code{"Prolific"}, \code{"OSF"}, \code{"synthetic"}), \code{url}, \code{study_id} and \code{batch_ids}.}
+\code{"Prolific"}, \code{"OSF"}, \code{"synthetic"}), \code{url}, \code{study_id} and \code{batch_ids}.
+\code{study_id} may hold several IDs when the batches span more than one
+platform study, e.g. after a re-deployment.}
 
 \item{collected_between}{Named \code{Date} vector or a pair of strings \code{as.Date()}
 can parse, as \code{c(first = , last = )}. Records the first and last day on
@@ -154,6 +156,7 @@ Beesley, T., & Le Pelley, M. E. (2011). The influence of blocking on overt
 attention and associability in human learning. \emph{Journal of Experimental
 Psychology: Animal Behavior Processes, 37}(1), 114–120.
 \doi{10.1037/a0019526}
+
 Paskewitz, S., & Jones, M. (2020). Dissecting EXIT. Journal of Mathematical
 Psychology*, \emph{97}, 102371. \doi{10.1016/j.jmp.2020.102371}
 }
