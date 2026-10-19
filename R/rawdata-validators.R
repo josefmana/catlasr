@@ -27,7 +27,7 @@
 
 # Platform-specific columns
 .platform_meta_cols <- list(
-  JATOS = c("browser", "browser_version", "os", "vsync_rate")
+  JATOS = c("batch_id", "browser", "browser_version", "os", "vsync_rate")
 )
 
 # Column names that identify a person and cannot thus be exported
@@ -37,7 +37,9 @@
   "e-mail",
   "e_mail",
   "mail",
-  "email_address"
+  "email_address",
+  "prolific_pid",
+  "subject_id"    # the name of PROLIFIC ID stored under `catlaslab` build from 2026-06-18
 )
 
 
@@ -210,6 +212,47 @@
 }
 
 
+#' Validate that a data bundle's batches are the same its provenance names
+#'
+#' Applies only when `meta` carries `batch_id`. A participant from an unlisted
+#' batch aborts, because the provenance record would then misstate where the
+#' data came from. A listed batch that contributed nobody warns.
+#'
+#' @inheritParams .validate_components
+#'
+#' @returns `x` invisibly; unlisted batches abort, empty batches warn.
+#'
+#' @noRd
+.validate_batch_alignment <- function(x, call = rlang::caller_env()) {
+  if (!"batch_id" %in% names(x$meta)) {
+    return(invisible(x))
+  }
+
+  expected <- as.character(provenance(x)$origin$batch_ids)
+  observed <- unique(as.character(x$meta$batch_id))
+
+  unlisted <- setdiff(observed, expected)
+  if (length(unlisted) > 0L) {
+    cli::cli_abort(c(
+            "Every `meta$batch_id` must be listed in `provenance$origin$batch_ids`.",
+      "x" = "Not listed: {.val {unlisted}}.",
+      "i" = "Either the provenance record is incomplete or the data come from a different pull."
+    ), call = call)
+  }
+
+  empty <- setdiff(expected, observed)
+  if (length(empty) > 0L) {
+    cli::cli_warn(c(
+            "{length(empty)} batch{?es} named in provenance contributed no participant.",
+      "i" = "Batch{?es}: {.val {empty}}.",
+      "i" = "Check the batch IDs: a mistyped batch silently shrinks the sample."
+    ), call = call)
+  }
+
+  invisible(x)
+}
+
+
 #' Refuse a data bundle that carries participant-identifying columns
 #'
 #' @inheritParams .validate_components
@@ -235,7 +278,7 @@
             "A data bundle must not carry participant-identifying columns.",
       "x" = "Found such column{?s} in {length(offending)} component{?s}.",
       rlang::set_names(bullets, rep("x", length(bullets))),
-      "i" = "Keep e-mail addresses outside the bundle and outside the repository."
+      "i" = "Keep identifying data such as e-mail addresses outside the bundle and outside the repository."
     ), call = call)
   }
 
@@ -255,7 +298,7 @@
 .validate_participant_meta <- function(x, call = rlang::caller_env()) {
   if (!is.numeric(x$meta$age)) {
     cli::cli_abort(c(
-      "`meta$age` must be numeric.",
+            "`meta$age` must be numeric.",
       "x" = "Got {.cls {class(x$meta$age)}}.",
       "i" = "The import coerces with {.fn as.numeric}; a character column means that step was skipped."
     ), call = call)
@@ -264,7 +307,7 @@
   out_of_range <- which(x$meta$age < 18 | x$meta$age > 100)
   if (length(out_of_range) > 0L) {
     cli::cli_warn(c(
-      "{length(out_of_range)} participant{?s} {?has/have} an age outside [18, 100].",
+            "{length(out_of_range)} participant{?s} {?has/have} an age outside [18, 100].",
       "i" = "ID{?s}: {.val {as.character(x$meta$id[out_of_range])}}.",
       "i" = "Verify the age coding before this reaches an exclusion rule."
     ), call = call)
@@ -389,6 +432,7 @@ validate_catlas_rawdata <- function(x, call = rlang::caller_env()) {
   # Checks that hold for any CATLAS bundle, no matter the experimental paradigm
   .validate_anonymity(x, call = call)
   .validate_platform_meta(x, call = call)
+  .validate_batch_alignment(x, call = call)
   .validate_participant_meta(x, call = call)
   .validate_response_times(x, call = call)
   .validate_stimulus_uniqueness(x, call = call)
