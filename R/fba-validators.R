@@ -29,8 +29,8 @@
 #'
 #' @section Promotion:
 #' The arithmetic is paradigm-agnostic but the floor is not: `setdiff(names(
-#' blocks), "test")` assumes exactly one test phase, named `test`. Promote this
-#' to a more general helper only once a design with a different phase structure
+#' blocks), "test")` assumes exactly one test stage, named `test`. Promote this
+#' to a more general helper only once a design with a different stage structure
 #' would call it unmodified. Until then the `.fba_` prefix is the most honest
 #' about its reach.
 #'

@@ -18,26 +18,6 @@
   "eeg"
 )
 
-# Recognised structural design variants
-.catlas_designs <- c(
-  "three-stage-replication", # Three-stage forward blocking study design of Beesley & Le Pelley (2011)
-  "three-stage-extension"    # Extension of the three-stage design suggested by Paskewitz & Jones (2020)
-)
-
-# Design specifications.
-.catlas_design_specs <- list(
-  "three-stage-replication" = list(
-    stages       = c("stage1", "stage2", "stage3", "test"),
-    min_cues     = 20L,
-    min_outcomes = 4L
-  ),
-  "three-stage-extension" = list(
-    stages       = c("stage1", "stage2", "stage3", "test"),
-    min_cues     = 20L,
-    min_outcomes = 4L
-  )
-)
-
 # Recognised data origins
 .catlas_platforms <- c(
   "JATOS",
@@ -45,45 +25,6 @@
   "OSF",
   "synthetic" # For simulated data
 )
-
-# Stage taxonomy. The machine name is what lives in `trials$stage`, in
-# `blocks.js` and in `provenance$blocks`; the label is for plots and prose.
-.stage_taxonomy <- tibble::tribble(
-  ~stage,   ~label,    ~order,
-  "stage1", "Phase 1", 1L,
-  "stage2", "Phase 2", 2L,
-  "stage3", "Phase 3", 3L,
-  "test",   "Test",    4L
-)
-
-
-#' Specification of a CATLAS study design
-#'
-#' @param design Character(1). A name from `.catlas_designs`.
-#'
-#' @returns A list with `stages`, `min_cues` and `min_outcomes`.
-#'
-#' @noRd
-.design_spec <- function(design) {
-  .catlas_design_specs[[design]]
-}
-
-
-#' Display label for a stage name, for plots and tables
-#'
-#' Falls back to the raw stage name for anything absent from
-#' `.stage_taxonomy`, rather than erroring, so a design that adds a stage
-#' is not blocked on this table being updated first.
-#'
-#' @param stage Character. Stage names as they appear in `trials$stage`.
-#'
-#' @returns Character of the same length, with labels where they are known.
-#'
-#' @noRd
-.stage_label <- function(stage) {
-  label <- .stage_taxonomy$label[match(stage, .stage_taxonomy$stage)]
-  dplyr::coalesce(label, stage)
-}
 
 
 #' Resolve and parse a CATLAS study identifier
@@ -291,6 +232,8 @@ catlas_provenance <- function(
 #'   are used to derive the expected trial count.
 #' @param origin Named list comprising of `platform` (one of `"JATOS"`,
 #'   `"Prolific"`, `"OSF"`, `"synthetic"`), `url`, `study_id` and `batch_ids`.
+#'   `study_id` may hold several IDs when the batches span more than one
+#'   platform study, e.g. after a re-deployment.
 #' @param collected_between Named `Date` vector or a pair of strings `as.Date()`
 #'   can parse, as `c(first = , last = )`. Records the first and last day on
 #'   which the experiment was run. Required unless the platform is
@@ -360,6 +303,7 @@ catlas_provenance <- function(
 #'   attention and associability in human learning. *Journal of Experimental
 #'   Psychology: Animal Behavior Processes, 37*(1), 114–120.
 #'   \doi{10.1037/a0019526}
+#'
 #' Paskewitz, S., & Jones, M. (2020). Dissecting EXIT. Journal of Mathematical
 #'   Psychology*, *97*, 102371. \doi{10.1016/j.jmp.2020.102371}
 #'
@@ -716,7 +660,7 @@ format.catlas_provenance <- function(x, ...) {
       "  origin     : %s, %d batch(es), %s",
       x$origin$platform,
       length(x$origin$batch_ids),
-      x$origin$study_id
+      paste(x$origin$study_id, collapse = ", ")
     ),
     sprintf(
       "  collected  : %s",
