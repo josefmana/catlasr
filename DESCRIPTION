@@ -17,6 +17,7 @@ RoxygenNote: 7.3.3
 Imports: 
     cli,
     dplyr,
+    jsonlite,
     magick,
     purrr,
     rlang,
@@ -30,13 +31,15 @@ Suggests:
     gt,
     here,
     jatosR,
-    jsonlite,
     knitr,
     osfr,
     readr,
     rmarkdown,
+    sessioninfo,
     stringr,
     tidyverse
+Remotes:
+    visionlabels/jatosR
 Depends: 
     R (>= 4.5)
 VignetteBuilder: knitr
