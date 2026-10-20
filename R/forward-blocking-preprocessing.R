@@ -1,8 +1,7 @@
 # forward-blocking-preprocessing.R
 #
-# Pre-processing functions for forward blocking experiments.
-# Computes subject-level DVs and learning summaries from `catlas_rawdata`
-# objects; produces group-level learning curve plots.
+# Pre-processing functions for forward blocking experiments. Compute
+# subject-level DVs from `catlas_rawdata` objects.
 #
 # Three DVs are provided:
 #   1. compute_cb_blocking() — confidence-weighted score (Beesley & Le Pelley, 2011)
@@ -15,13 +14,6 @@
 .fb_abstract_cue_values     <- c(LETTERS, "alpha", "beta")
 .fb_abstract_outcome_values <- c("o1", "o2", "o3", "o4")
 
-# Stage 1: contingency type is not yet stored in `type`; inferred from cue1.
-.fb_stage1_blocking_cues <- c("A", "C", "E", "G")
-.fb_stage1_control_cues  <- c("I", "L", "O", "R")
-
-# All Stage 1 cues; any cue1 outside this set raises a warning.
-.fb_stage1_known_cues <- c(.fb_stage1_blocking_cues, .fb_stage1_control_cues)
-
 # Test-stage cue pairs for the Paskewitz–Jones blocking score.
 .fb_minuend_test_pairs <- tibble::tibble(
   cue1 = c("D", "H", "D", "H"),
@@ -31,13 +23,6 @@
 .fb_subtrahend_test_pairs <- tibble::tibble(
   cue1 = c("B", "F", "B", "F"),
   cue2 = c("T", "N", "N", "T")
-)
-
-# Stage label lookup for plots.
-.fb_stage_labels <- c(
-  stage1 = "Stage 1",
-  stage2 = "Stage 2",
-  stage3 = "Stage 3"
 )
 
 
@@ -93,41 +78,6 @@
       outcomes,
       by = dplyr::join_by("id", "response" == "response_abstract")
     )
-}
-
-
-#' Tag Stage 1 trials with blocking vs. control contingency type
-#'
-#' The raw `type` column does not yet encode blocking/control for Stage 1.
-#' This helper adds `contingency_type` by mapping `cue1`:
-#' A, C, E, G to `"blocking"`; I, L, O, R to `"control"`.
-#' Unrecognised `cue1` values produce `NA` and trigger a warning.
-#'
-#' @param trials A tibble of Stage 1 trials with a `cue1` column.
-#'
-#' @returns `trials` with the `type` column re-coded.
-#'
-#' @noRd
-.tag_stage1_type <- function(trials) {
-  stage1_cues  <- unique(subset(trials, .data$stage == "stage1")$cue1)
-  unknown_cues <- setdiff(stage1_cues, .fb_stage1_known_cues)
-
-  if (length(unknown_cues) > 0L) {
-    cli::cli_warn(c(
-            "Some Stage 1 `cue1` values are not in the expected blocking or control set.",
-      "i" = "Unrecognised cues: {unknown_cues}. They will receive `type = NA`."
-    ))
-  }
-
-  dplyr::mutate(
-    trials,
-    type = dplyr::case_when(
-      .data$cue1 %in% .fb_stage1_blocking_cues ~ "blocking",
-      .data$cue1 %in% .fb_stage1_control_cues  ~ "control",
-      .data$cue1 %in% unknown_cues ~ NA_character_,
-      .default = .data$type
-    )
-  )
 }
 
 
