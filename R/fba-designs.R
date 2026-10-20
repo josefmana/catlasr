@@ -10,7 +10,7 @@
 .fba_three_stage_cue_sets <- list(
   stage1 = list(
     "A", "C", "E", "G", # Blocking
-    "I", "L", "O", "R"  # Filler
+    "I", "L", "O", "R"  # Control
   ),
   stage2 = list(
     c("A", "B"), c("C", "D"), c("E", "F"), c("G", "H"), # Blocking
@@ -30,12 +30,14 @@
 .catlas_design_specs <- list(
   "three-stage-replication" = list(
     stages       = c("stage1", "stage2", "stage3", "test"),
+    feedback     = c(stage1 = TRUE, stage2 = TRUE, stage3 = TRUE, test = FALSE),
     min_cues     = 20L,
     min_outcomes = 4L,
     cue_sets     = .fba_three_stage_cue_sets
   ),
   "three-stage-extension" = list(
     stages       = c("stage1", "stage2", "stage3", "test"),
+    feedback     = c(stage1 = TRUE, stage2 = TRUE, stage3 = TRUE, test = FALSE),
     min_cues     = 20L,
     min_outcomes = 4L,
     cue_sets     = NULL # Stage 3 differs from the replication; set once the -03 build exists
@@ -62,8 +64,9 @@
 #'
 #' @param design Character(1). A name from `.catlas_designs`.
 #'
-#' @returns A list with `stages`, `min_cues`, `min_outcomes` and `cue_sets`
-#'   (`NULL` while a design's cues are unspecified).
+#' @returns A list with `stages`, `feedback` (named logical, `TRUE` for the
+#'   stages that give trial-by-trial feedback), `min_cues`, `min_outcomes`, and
+#'   `cue_sets` (`NULL` while a design's cues are unspecified).
 #'
 #' @noRd
 .design_spec <- function(design) {
@@ -85,4 +88,30 @@
 .stage_label <- function(stage) {
   label <- .stage_taxonomy$label[match(stage, .stage_taxonomy$stage)]
   dplyr::coalesce(label, stage)
+}
+
+
+#' Stages of a design that give trial-by-trial feedback
+#'
+#' Learning checks filter in these stages only. In a stage without feedback,
+#' such as the test stage of the three-stage designs, `is_correct` records
+#' consistency with the expected effect rather than a correct answer.
+#'
+#' @param design Character(1). A name from `.catlas_designs`.
+#' @param call Environment for error reporting.
+#'
+#' @returns Character. Stage names in design order.
+#'
+#' @noRd
+.feedback_stages <- function(design, call = rlang::caller_env()) {
+  spec <- .design_spec(design)
+
+  if (is.null(spec) || is.null(spec$feedback)) {
+    cli::cli_abort(c(
+            "No feedback stages are recorded for design {.val {design}}.",
+      "i" = "Known designs: {.val {names(.catlas_design_specs)}}."
+    ), call = call)
+  }
+
+  spec$stages[spec$feedback[spec$stages] %in% TRUE]
 }
