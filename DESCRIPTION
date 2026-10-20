@@ -17,6 +17,7 @@ RoxygenNote: 7.3.3
 Imports: 
     cli,
     dplyr,
+    ggplot2,
     jsonlite,
     magick,
     purrr,
