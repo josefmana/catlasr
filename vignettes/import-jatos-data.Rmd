@@ -2,7 +2,7 @@
 title: "Importing the Forward Blocking Replication Pilot from JATOS"
 output: rmarkdown::html_vignette
 params:
-  save_to: ""
+  save: false
 vignette: >
   %\VignetteIndexEntry{Importing the Forward Blocking Replication Pilot from JATOS}
   %\VignetteEngine{knitr::rmarkdown}
@@ -52,17 +52,18 @@ came from.
 - [`{jsonlite}`](https://github.com/jeroen/jsonlite.git)
 
 The raw data contain personal information, namely the participants' age, sex
-and e-mail address, so the vignette saves the finished bundle only when asked
-to and only to a location the user chooses. To do so in a single step, run the
-following line from the package root[^1]:
+and e-mail address, so the vignette saves its data bundles only when asked to
+and only to the private folder named by `CATLAS_PRIVATE_DIR` in your
+`.Renviron`[^1]. To import and save in a single step, run the following line
+from the package root:
 
-[^1]: Everything under `data-raw/` other than R code is ignored by git, so the
-`.rds` stays on your machine without being at risk of being pushed online.
+[^1]: `write_private_rds()` refuses any folder that lies inside a git
+repository, so the bundles cannot be pushed online by accident.
 
 ```r
 rmarkdown::render(
   "vignettes/import-jatos-data.Rmd",
-  params = list(save_to = here::here("data-raw", "fba-allergy-online-01.rds"))
+  params = list(save = TRUE)
 )
 ```
 
@@ -286,26 +287,47 @@ Contains one row per JATOS study record, including records that will be
 excluded. This is done deliberately, so that every exclusion can be documented
 with a reference to a known participant/record. Screen and browser details come
 from the jsPsych browser check, while sex and age come from the demography form.
-The e-mail address collected by the experiment is intentionally dropped, and
-`build_fba_rawdata()` refuses any bundle that includes e-mail fields to prevent
-personal data being pushed to a public repository.
+The duration of the run is calculated from the start and end times JATOS
+recorded, and only for finished runs, because JATOS does not record a reliable
+end for the rest. Prior knowledge comes from the debriefing question asking
+whether the participant had taken part in a similar experiment before. The
+free-text comment of the debriefing is not imported, as it may contain anything,
+including contact details. The e-mail address collected by the experiment is
+intentionally dropped, and `build_fba_rawdata()` refuses any bundle that
+includes e-mail fields to prevent personal data being pushed to a public
+repository.
 
 ```{r meta}
 meta_cols <- c(
-  "sex", "age",                                                       # Demographics
-  "width", "height", "browser", "browser_version", "os", "vsync_rate" # Browser data
+  "sex", "age",                                                        # Demographics
+  "width", "height", "browser", "browser_version", "os", "vsync_rate"  # Browser data
 )
 
 meta <-
   results |>
+  mutate(
+    duration_min = if_else(
+      study_state == "FINISHED",
+      as.numeric(difftime(end_date_sr, start_date_sr, units = "mins")),
+      NA_real_
+    )
+  ) |>
   select(
-    id,      # For cross-reference across data-bundle components
-    batch_id # For cross-reference with the provenance record
+    id,           # For cross-reference across data-bundle components
+    batch_id,     # For cross-reference with the provenance record
+    duration_min  # For the feasibility audit
   ) |>
   left_join(
     jspsych |>
       select(id, all_of(meta_cols)) |>
       summarise(across(everything(), \(x) first(na.omit(x))), .by = id),
+    by = "id"
+  ) |>
+  left_join(
+    jspsych |>
+      filter(trial_type == "debrief") |>
+      select(id, any_of("prior_knowledge")) |>
+      summarise(prior_knowledge = as.logical(first(na.omit(prior_knowledge))), .by = id),
     by = "id"
   ) |>
   mutate(age = as.numeric(age)) # The demography form returns age as character
@@ -508,6 +530,10 @@ fba <- build_fba_rawdata(
 )
 
 fba
+
+# The object is kept as imported, before any exclusion, so that the later
+# feasibility audit can see where the excluded participants stopped
+fba_imported <- fba
 ```
 
 The console record above shows several warning messages. At this point of the
@@ -625,15 +651,113 @@ fba <- build_fba_rawdata(
 )
 
 fba
+
+# These data comprise the full sample, i.e., every participant with a complete
+# run, before applying any rule that depends on their responses
+fba_structural <- fba
 ```
 
-## 7. Save
+## 7. Learning-based exclusions
 
-With the import finished, the bundle can be saved for use by other code, such
-as the `CATLAS` manuscript-building functions:
+In theory, blocking can only be measured in participants who learned the
+contingencies of all three learning stages. Consequently, the last exclusion
+rule removes participants whose learning cannot be reliably told apart from
+guessing. The functions via which learning-based exclusion is computed use
+learning stages data only, they do not peek at the test-stage data, keeping the
+rule blind to the outcome of the study.
 
-```{r save, eval = can_run && nzchar(params$save_to)}
-saveRDS(fba, params$save_to)
+The rule takes three deliberate, consecutive steps:
+
+- `score_learning()` counts the answered and correct trials per participant,
+  stage, contingency type and block.
+- `test_learning()` then asks, for every participant and stage, whether there
+  were more correct responses than what guessing would plausibly produce (a
+  one-sided exact binomial test against 0.5), and reports the cut-off, i.e., the
+  smallest number of correct responses at which guessing is rejected.
+- Finally, `screen_learning()` marks for exclusion every participant who, in
+  one or more stages, did not score significantly above chance, and says why.
+
+All three functions are intentionally talkative; they state their assumptions
+and summarise the process, so that the user does not take their results as is,
+but is rather reminded about their potential shortcomings:
+
+```{r learning-tests}
+learning_alpha  <- 0.10
+learning_scores <- score_learning(fba)
+learning_tests  <- test_learning(learning_scores, alpha = learning_alpha)
+learning_screen <- screen_learning(learning_tests, rule = "any")
+
+learning_screen |>
+  filter(exclude) |>
+  select(id, failed_stages, reason)
+```
+
+At `alpha = 0.10`, the Stage 3 cut-off roughly equals the 60% criterion used in
+the literature. A participant who guesses throughout the full experiment passes
+all three stages with a probability below 0.001 (`help("test_learning")`
+explains the choice more thoroughly).
+
+Here, the rule's description is built from the same `alpha` and from the design
+recorded in provenance, so that the sentence in the provenance record and the
+rule that was applied cannot disagree:
+
+```{r exclude-learning}
+stages  <- c("stage1", "stage2", "stage3")
+n_stage <- provenance(fba)$blocks[stages] * provenance(fba)$trial_types
+k_stage <- stats::qbinom(1 - learning_alpha, n_stage, 0.5) + 1
+
+fba <- record_exclusion(
+  fba,
+  rule = "learning_not_reliably_above_chance",
+  description = sprintf(
+    paste(
+      "The participant did not score significantly above chance in at least",
+      "one of the three learning stages, as decided by a one-sided exact",
+      "binomial test of the number of correct responses against 0.5 at alpha =",
+      "%.2f over all answered trials of the stage (timed-out trials excluded).",
+      "On complete data, fewer than %d of %d correct in Stage 1, %d of %d in",
+      "Stage 2, or %d of %d in Stage 3. A stage without any answered trial",
+      "counts as failed."
+    ),
+    learning_alpha,
+    k_stage[1], n_stage[1],
+    k_stage[2], n_stage[2],
+    k_stage[3], n_stage[3]
+  ),
+  ids = learning_screen$id[learning_screen$exclude]
+)
+
+fba <- build_fba_rawdata(
+  meta = extract_meta(fba),
+  stimuli = extract_stimuli(fba),
+  trials = extract_trials(fba),
+  provenance = provenance(fba)
+)
+
+provenance(fba)
+
+# The final dataset for the primary analysis
+fba_screened <- fba
+```
+
+The participants removed here stay in `fba_structural`, which the analysis
+uses as its full-sample sensitivity check.
+
+## 8. Save
+
+With the import finished, three bundles can be saved for use by other code,
+such as the `CATLAS` notebooks:
+
+| File | Bundle | Use |
+| :--- | :-- | :-- |
+| `fba-allergy-online-01-imported.rds` | before any exclusion | attrition and feasibility |
+| `fba-allergy-online-01-structural.rds` | after the structural exclusions | full-sample sensitivity analysis |
+| `fba-allergy-online-01-screened.rds` | after the learning-based exclusions | primary analysis |
+
+```{r save, eval = can_run && isTRUE(params$save)}
+write_private_rds(fba_imported,   "fba-allergy-online-01-imported.rds",   overwrite = TRUE)
+write_private_rds(fba_structural, "fba-allergy-online-01-structural.rds", overwrite = TRUE)
+write_private_rds(fba_screened,   "fba-allergy-online-01-screened.rds",   overwrite = TRUE)
 ```
 
 ## Session info
