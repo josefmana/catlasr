@@ -31,13 +31,62 @@ write_private_csv <- function(
     cli::cli_abort("`x` must be a data frame.")
   }
 
+  path <- .private_path(file, dir, overwrite)
+
+  utils::write.csv(x, path, row.names = FALSE)
+  invisible(path)
+}
+
+
+#' Write a data bundle with personal data outside all repositories
+#'
+#' A `catlas_rawdata` bundle can hold personal data, such as age and sex, and
+#' must not be saved inside a repository. `write_private_rds()` saves any R
+#' object as `.rds` to a private folder, with the same guards as
+#' [write_private_csv()].
+#'
+#' @param x Any R object, typically a `catlas_rawdata` bundle.
+#' @inheritParams write_private_csv
+#'
+#' @returns The path of the written file, invisibly.
+#'
+#' @inherit write_private_csv details
+#'
+#' @seealso [write_private_csv()]
+#'
+#' @export
+write_private_rds <- function(
+    x,
+    file,
+    dir = Sys.getenv("CATLAS_PRIVATE_DIR"),
+    overwrite = FALSE
+) {
+  path <- .private_path(file, dir, overwrite)
+  saveRDS(x, path)
+  invisible(path)
+}
+
+
+#' Resolve and guard a path in the private folder
+#'
+#' Checks that `file` is a bare file name, that `dir` is provided, exists and
+#' lies outside every git work tree, and that an existing file is replaced only
+#' on request.
+#'
+#' @inheritParams write_private_csv
+#' @param call Environment for error reporting.
+#'
+#' @returns The full path, as a character string.
+#'
+#' @noRd
+.private_path <- function(file, dir, overwrite, call = rlang::caller_env()) {
   if (!is.character(file) || length(file) != 1L || is.na(file) ||
       !nzchar(file) || basename(file) != file) {
     cli::cli_abort(c(
             "`file` must be a bare file name.",
       "x" = "Received {.val {file}}.",
       "i" = "Choose the folder with `dir`, not as a part of `file`."
-    ))
+    ), call = call)
   }
 
   if (!is.character(dir) || length(dir) != 1L || is.na(dir) || !nzchar(dir)) {
@@ -45,14 +94,14 @@ write_private_csv <- function(
             "No private folder given.",
       "i" = "Set {.envvar CATLAS_PRIVATE_DIR} in {.file .Renviron} to a folder outside every repository, then restart R.",
       "i" = "{.code usethis::edit_r_environ()} opens the file."
-    ))
+    ), call = call)
   }
 
   if (!dir.exists(dir)) {
     cli::cli_abort(c(
             "The private folder does not exist.",
       "x" = "{.path {dir}}"
-    ))
+    ), call = call)
   }
 
   dir <- normalizePath(dir, winslash = "/", mustWork = TRUE)
@@ -62,7 +111,7 @@ write_private_csv <- function(
             "Refusing to write personal data inside a git repository.",
       "x" = "{.path {dir}} lies inside {.path {repo}}.",
       "i" = "Point `dir`, or {.envvar CATLAS_PRIVATE_DIR}, to a folder outside every repository."
-    ))
+    ), call = call)
   }
 
   path <- file.path(dir, file)
@@ -71,11 +120,10 @@ write_private_csv <- function(
             "The file already exists.",
       "x" = "{.path {path}}",
       "i" = "Write {.code overwrite = TRUE} to replace it."
-    ))
+    ), call = call)
   }
 
-  utils::write.csv(x, path, row.names = FALSE)
-  invisible(path)
+  path
 }
 
 
