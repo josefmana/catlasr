@@ -211,7 +211,7 @@ trace_progress <- function(x, silence = FALSE) {
     } else {
       c("!" = "{.field meta} holds no {.field duration_min}, so the column is {.code NA}.")
     },
-    "i" = "Excluded participants are no longer in a data bundle after {.fn record_exclusion}; trace the bundle as imported to see where did they stop."
+    "i" = "Excluded participants are no longer in a data bundle after {.fn record_exclusion}; trace the bundle as imported to see where they stopped."
   ))
   invisible(NULL)
 }
