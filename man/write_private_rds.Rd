@@ -37,5 +37,5 @@ works without git installed and also recognises worktrees and submodules,
 whose \code{.git} is a file.
 }
 \seealso{
-\code{\link[=write_private_csv]{write_private_csv()}}
+\code{\link[=write_private_csv]{write_private_csv()}}, \code{\link[=read_private_rds]{read_private_rds()}}
 }
