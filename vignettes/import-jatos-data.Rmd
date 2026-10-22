@@ -10,11 +10,12 @@ vignette: >
 ---
 
 ```{r setup-run, include = FALSE}
-# NOTE: The import needs the JATOS token and {jatosR}. Without them the vignette
-# still builds, as code only, so that `R CMD check` and pkgdown never need access
-# to participant data.
+# NOTE: The import needs the JATOS token, {jatosR} and the private folder in
+# `CATLAS_PRIVATE_DIR`. Without them the vignette still builds, as code only, so
+# that `R CMD check` and pkgdown never need access to participant data.
 can_run <-
   nzchar(Sys.getenv("mindprobe_catlas_token")) &&
+  nzchar(Sys.getenv("CATLAS_PRIVATE_DIR")) &&
   requireNamespace("jatosR", quietly = TRUE) &&
   requireNamespace("jsonlite", quietly = TRUE)
 
@@ -50,12 +51,16 @@ came from.
 - [`{jatosR}`](https://github.com/visionlabels/jatosR), installed from GitHub
   via `remotes::install_github("visionlabels/jatosR")`
 - [`{jsonlite}`](https://github.com/jeroen/jsonlite.git)
+- A private folder outside every repository, named by `CATLAS_PRIVATE_DIR` in
+  your `.Renviron`, holding `fba-allergy-online-01-meta-corrections.rds` (see
+  [Corrected self-reports](#corrected-self-reports))
 
 The raw data contain personal information, namely the participants' age, sex
 and e-mail address, so the vignette saves its data bundles only when asked to
-and only to the private folder named by `CATLAS_PRIVATE_DIR` in your
-`.Renviron`[^1]. To import and save in a single step, run the following line
-from the package root:
+and only to the private folder[^1]. The import also reads from this folder,
+because the corrections of two untrue self-reports are personal data too. To
+import and save in a single step, run the following line from the package
+root:
 
 [^1]: `write_private_rds()` refuses any folder that lies inside a git
 repository, so the bundles cannot be pushed online by accident.
@@ -257,7 +262,9 @@ prov <- build_provenance(
     "A small number of early runs (all in the 30206 batch) used the experiment",
     "build preceding the 10 June 2026 debriefing patch, which renamed",
     "debriefing variables only. Experimental trials are identical in both",
-    "builds. All runs are thus treated alike."
+    "builds. All runs are thus treated alike. The self-reported sex and age",
+    "of two participants of the 30206 batch were replaced with their true",
+    "values, known to the experimenter, which are kept in the private folder."
   )
 )
 
@@ -354,6 +361,24 @@ cat(sprintf(
   nrow(meta_summary),
   sum(meta_summary$missing_age)
 ))
+```
+
+### Corrected self-reports
+
+Two participants of the 30206 batch, both from the experimenter's family,
+entered an untrue sex or age in the demography form. Since the experimenter
+knows their true values, the code below replace the self-reports. The
+corrections comprise personal data and therefore live in the private folder,
+keyed by participant ID, not in this vignette. `rows_update()` aborts if a
+corrected ID is not in `meta`, so a stale correction cannot pass silently.
+The counts above describe the records as collected, before this correction.
+
+```{r meta-corrections}
+meta <- rows_update(
+  meta,
+  read_private_rds("fba-allergy-online-01-meta-corrections.rds"),
+  by = "id"
+)
 ```
 
 ### Stimulus mappings
