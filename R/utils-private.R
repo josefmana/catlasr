@@ -52,7 +52,7 @@ write_private_csv <- function(
 #'
 #' @inherit write_private_csv details
 #'
-#' @seealso [write_private_csv()]
+#' @seealso [write_private_csv()], [read_private_rds()]
 #'
 #' @export
 write_private_rds <- function(
@@ -67,19 +67,57 @@ write_private_rds <- function(
 }
 
 
+#' Read a data bundle from the private folder
+#'
+#' This function is a counterpart of [write_private_rds()]. It reads an `.rds`
+#' file, typically a `catlas_rawdata` bundle saved by an import vignette, from
+#' the private folder, so that analysis code never spells out where personal
+#' data live.
+#'
+#' @inheritParams write_private_csv
+#'
+#' @returns The R object stored in the file.
+#'
+#' @details
+#' The private folder is checked in the same way as in [write_private_csv()],
+#' i.e., `dir` must be given, exist, and lie outside every git work tree. A
+#' folder inside a repository is refused for writing as well as reading, because
+#' personal data found there are one `git add` away from being published and
+#' should thus be moved first.
+#'
+#' A missing file yields an error that lists the `.rds` files the folder really
+#' does contain.
+#'
+#' @seealso [write_private_rds()]
+#'
+#' @export
+read_private_rds <- function(file, dir = Sys.getenv("CATLAS_PRIVATE_DIR")) {
+  path <- .private_path(file, dir, read = TRUE)
+  readRDS(path)
+}
+
+
 #' Resolve and guard a path in the private folder
 #'
 #' Checks that `file` is a bare file name, that `dir` is provided, exists and
-#' lies outside every git work tree, and that an existing file is replaced only
-#' on request.
+#' lies outside every git work tree. When writing, an existing file is replaced
+#' only on request; when reading, the file must exist.
 #'
 #' @inheritParams write_private_csv
+#' @param read Logical(1). Should the function eesolve the path for reading
+#'   rather than writing?
 #' @param call Environment for error reporting.
 #'
 #' @returns The full path, as a character string.
 #'
 #' @noRd
-.private_path <- function(file, dir, overwrite, call = rlang::caller_env()) {
+.private_path <- function(
+    file,
+    dir,
+    overwrite = FALSE,
+    read = FALSE,
+    call = rlang::caller_env()
+) {
   if (!is.character(file) || length(file) != 1L || is.na(file) ||
       !nzchar(file) || basename(file) != file) {
     cli::cli_abort(c(
@@ -108,13 +146,34 @@ write_private_rds <- function(
   repo <- .find_git_root(dir)
   if (!is.null(repo)) {
     cli::cli_abort(c(
-            "Refusing to write personal data inside a git repository.",
+      if (read) {
+        "Refusing to read personal data from inside a git repository."
+      } else {
+        "Refusing to write personal data inside a git repository."
+      },
       "x" = "{.path {dir}} lies inside {.path {repo}}.",
       "i" = "Point `dir`, or {.envvar CATLAS_PRIVATE_DIR}, to a folder outside every repository."
     ), call = call)
   }
 
   path <- file.path(dir, file)
+
+  if (read) {
+    if (!file.exists(path)) {
+      present <- list.files(dir, pattern = "[.]rds$")
+      cli::cli_abort(c(
+              "The file was not found in the private folder.",
+        "x" = "{.path {path}}",
+        "i" = if (length(present) > 0L) {
+          "{.file .rds} files there: {.file {present}}."
+        } else {
+          "The folder holds no {.file .rds} file."
+        }
+      ), call = call)
+    }
+    return(path)
+  }
+
   if (file.exists(path) && !isTRUE(overwrite)) {
     cli::cli_abort(c(
             "The file already exists.",
