@@ -8,23 +8,6 @@
 )
 
 
-#' Order stages for display
-#'
-#' Known stages follow `.stage_taxonomy`; unknown ones follow in the order they
-#' first appear, so a new design is not blocked on the taxonomy being updated.
-#'
-#' @param stage Character. Stage names.
-#'
-#' @returns Integer of the same length, a sort key.
-#'
-#' @noRd
-.stage_order <- function(stage) {
-  known <- .stage_taxonomy$order[match(stage, .stage_taxonomy$stage)]
-  unknown <- match(stage, unique(stage)) + max(.stage_taxonomy$order)
-  dplyr::coalesce(known, unknown)
-}
-
-
 #' Integer axis breaks within the limits of a panel
 #'
 #' @param limits Numeric(2). Panel limits, as passed by ggplot2.
