@@ -195,6 +195,150 @@
 }
 
 
+#' Check test trials against the blocking expectations of the design
+#'
+#' Every test trial must present one of the pairs listed in the design, and on
+#' every answered test trial jsPsych's `is_correct` must equal the comparison
+#' of the response with the outcome the design registry expects. In the test
+#' stage, `is_correct` records what the experiment build expected, so a
+#' disagreement means the build and the registry are out of sync. Left
+#' unchecked, that would flip the sign of the blocking indices on the pairs
+#' concerned.
+#'
+#' Shared by `.validate_fba_test_expectations()`, which runs whenever a bundle
+#' is built, and `score_blocking()`, which also covers bundles saved before
+#' the check existed.
+#'
+#' @param trials The `trials` component of a `catlas_fba_rawdata` object.
+#' @param design Character(1). A design with recorded `test_pairs`.
+#' @param call Environment for error reporting.
+#'
+#' @returns The number of answered test trials checked, invisibly; an error
+#'   on any unknown pair or disagreement.
+#'
+#' @noRd
+.check_fba_test_expectations <- function(trials, design, call = rlang::caller_env()) {
+  pairs <- .test_pairs(design, call = call)
+  test <-
+    trials |>
+    dplyr::filter(.data$stage %in% .test_stages(design, call = call))
+
+  unknown <- dplyr::anti_join(test, pairs, by = c("cue1", "cue2"))
+
+  if (nrow(unknown) > 0L) {
+    cli::cli_abort(c(
+            "Test trials that present a cue pair the design does not list: {nrow(unknown)}.",
+      "x" = "Unknown pair{?s}: {.val {unique(paste0(unknown$cue1, unknown$cue2))}}.",
+      "i" = "Test pairs of {.val {design}}: {.val {paste0(pairs$cue1, pairs$cue2)}}."
+    ), call = call)
+  }
+
+  checked <-
+    test |>
+    dplyr::filter(
+      !is.na(.data$is_correct),
+      !is.na(.data$response)
+    ) |>
+    dplyr::inner_join(
+      pairs,
+      by = c("cue1", "cue2")
+    )
+
+  mismatch <-
+    checked |>
+    dplyr::filter((.data$response == .data$expected) != .data$is_correct)
+
+  if (nrow(mismatch) > 0L) {
+    cli::cli_abort(c(
+            "Answered test trials whose {.field is_correct} disagrees with the blocking expectations of {.val {design}}: {nrow(mismatch)} of {nrow(checked)}.",
+      "x" = "Pair{?s} concerned: {.val {unique(paste0(mismatch$cue1, mismatch$cue2))}}.",
+      "x" = "Participant{?s} concerned: {.val {unique(as.character(mismatch$id))}}.",
+      "i" = "In the test stage, {.field is_correct} records the outcome the experiment build expected; the registry expects the Stage 3 outcome associated with the control cue. Check the experiment build against the registry before computing any blocking index."
+    ), call = call)
+  }
+
+  invisible(nrow(checked))
+}
+
+
+#' Validate the test trials against the blocking expectations of the design
+#'
+#' @inheritParams validate_catlas_fba_rawdata
+#'
+#' @returns `x` invisibly on success, otherwise an informative error. Designs
+#'   without recorded test pairs pass unchecked.
+#'
+#' @noRd
+.validate_fba_test_expectations <- function(x, call = rlang::caller_env()) {
+  design <- provenance(x)$design
+
+  if (is.null(.design_spec(design)$test_pairs)) {
+    return(invisible(x))
+  }
+
+  .check_fba_test_expectations(x$trials, design, call = call)
+  invisible(x)
+}
+
+
+#' Validate test-stage confidence ratings against the scale of the design
+#'
+#' Ratings outside the scale recorded in the design registry, or not whole
+#' numbers, abort. Answered test trials without a rating warn, as do ratings in
+#' a design that records no confidence scale.
+#'
+#' @inheritParams validate_catlas_fba_rawdata
+#'
+#' @returns `x` invisibly on success, otherwise an informative error or warning.
+#'
+#' @noRd
+.validate_fba_confidence <- function(x, call = rlang::caller_env()) {
+  design <- provenance(x)$design
+  scale <- .confidence_scale(design)
+
+  test <-
+    x$trials |>
+    dplyr::filter(.data$stage %in% .test_stages(design, call = call))
+
+  rated <- !is.na(test$confidence)
+
+  if (is.null(scale)) {
+    if (any(rated)) {
+      cli::cli_warn(c(
+              "The design {.val {design}} records no confidence scale, but {sum(rated)} test trial{?s} contain{?s/} a rating.",
+        "i" = "Participant{?s}: {.val {unique(as.character(test$id[rated]))}}.",
+        "i" = "Record the scale in the design registry if the build collects confidence ratings."
+      ), call = call)
+    }
+    return(invisible(x))
+  }
+
+  outside <- rated &
+    (test$confidence < scale[["min"]] |
+       test$confidence > scale[["max"]] |
+       test$confidence != round(test$confidence))
+
+  if (any(outside)) {
+    cli::cli_abort(c(
+            "Test-stage confidence ratings outside the {scale[['min']]} to {scale[['max']]} scale of {.val {design}}: {sum(outside)}.",
+      "x" = "Values: {.val {sort(unique(test$confidence[outside]))}}.",
+      "x" = "Participant{?s} concerned: {.val {unique(as.character(test$id[outside]))}}."
+    ), call = call)
+  }
+
+  unrated <- !is.na(test$response) & !(test$timed_out %in% TRUE) & !rated
+
+  if (any(unrated)) {
+    cli::cli_warn(c(
+            "{sum(unrated)} answered test trial{?s} {?has/have} no confidence rating.",
+      "i" = "Participant{?s}: {.val {unique(as.character(test$id[unrated]))}}."
+    ), call = call)
+  }
+
+  invisible(x)
+}
+
+
 #' Validate forward-blocking-attention constraints on a raw-data bundle
 #'
 #' Calls [validate_catlas_rawdata()] for every check shared across CATLAS
@@ -215,6 +359,8 @@ validate_catlas_fba_rawdata <- function(x, call = rlang::caller_env()) {
   .validate_fba_trial_counts(x, call = call)
   .validate_fba_cue_coverage(x, call = call)
   .validate_fba_counterbalancing(x, call = call)
+  .validate_fba_test_expectations(x, call = call)
+  .validate_fba_confidence(x, call = call)
 
   invisible(x)
 }
