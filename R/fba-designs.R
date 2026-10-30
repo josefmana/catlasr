@@ -1,7 +1,24 @@
 # Recognised structural design variants
 .catlas_designs <- c(
-  "three-stage-replication", # Three-stage forward blocking study design of Beesley & Le Pelley (2011)
-  "three-stage-extension"    # Extension of the three-stage design suggested by Paskewitz & Jones (2020)
+  "three-stage-replication",  # Three-stage forward blocking study design of Beesley & Le Pelley (2011)
+  "three-stage-extension"     # Extension of the three-stage design suggested by Paskewitz & Jones (2020)
+)
+
+# Test pairs of the three-stage replication, with the outcome predicted by
+# blocking for each. Every test pair combines a cue blocked in Stage 2
+# (`blocked`) with a control cue (`control`) that was paired with the other
+# outcome in Stage 3. Transcribed from Beesley & Le Pelley (2011, Table 1 and
+# p. 116) and Paskewitz & Jones (2020, Table 12, column "Ctl. Asc.").
+.fba_three_stage_test_pairs <- tibble::tribble(
+  ~cue1, ~cue2, ~blocked, ~control, ~expected,
+  "B",   "T",   "B",      "T",      "o4",
+  "F",   "N",   "F",      "N",      "o4",
+  "B",   "N",   "B",      "N",      "o4",
+  "F",   "T",   "F",      "T",      "o4",
+  "D",   "Q",   "D",      "Q",      "o3",
+  "H",   "K",   "H",      "K",      "o3",
+  "D",   "K",   "D",      "K",      "o3",
+  "H",   "Q",   "H",      "Q",      "o3"
 )
 
 # Cue sets of the three-stage replication
@@ -20,10 +37,11 @@
     c("B", "K"), c("D", "N"), c("F", "Q"), c("H", "T"),       # Blocking/critical
     c("U", "V"), c("W", "X"), c("Y", "Z"), c("alpha", "beta") # Filler
   ),
-  test = list(
-    c("B", "T"), c("F", "N"), c("B", "N"), c("F", "T"),  # Blocking expects preference for `"o4"` (subtrahend of PJ score)
-    c("D", "Q"), c("H", "K"), c("D", "K"), c("H", "Q")   # Blocking expects preference for `"o3"` (minuend of PJ score)
-  )
+  test = unname(Map(
+    c,
+    .fba_three_stage_test_pairs$cue1,
+    .fba_three_stage_test_pairs$cue2
+  ))
 )
 
 # Design specifications.
@@ -33,14 +51,18 @@
     feedback     = c(stage1 = TRUE, stage2 = TRUE, stage3 = TRUE, test = FALSE),
     min_cues     = 20L,
     min_outcomes = 4L,
-    cue_sets     = .fba_three_stage_cue_sets
+    cue_sets     = .fba_three_stage_cue_sets,
+    test_pairs   = .fba_three_stage_test_pairs,
+    confidence   = c(min = 1L, max = 10L)
   ),
   "three-stage-extension" = list(
     stages       = c("stage1", "stage2", "stage3", "test"),
     feedback     = c(stage1 = TRUE, stage2 = TRUE, stage3 = TRUE, test = FALSE),
     min_cues     = 20L,
     min_outcomes = 4L,
-    cue_sets     = NULL # Stage 3 differs from the replication; set once the -03 build exists
+    cue_sets     = NULL,  # Stage 3 differs from the replication; set once the -03 build exists
+    test_pairs   = NULL,  # Likewise
+    confidence   = NULL   # Test stage without confidence rating; check post-02 against the real -03 build
   )
 )
 
@@ -65,8 +87,10 @@
 #' @param design Character(1). A name from `.catlas_designs`.
 #'
 #' @returns A list with `stages`, `feedback` (named logical, `TRUE` for the
-#'   stages that give trial-by-trial feedback), `min_cues`, `min_outcomes`, and
-#'   `cue_sets` (`NULL` while a design's cues are unspecified).
+#'   stages that give trial-by-trial feedback), `min_cues`, `min_outcomes`,
+#'   `cue_sets` (`NULL` while a design's cues are unspecified), `test_pairs`
+#'   (`NULL` likewise) and `confidence` (the scale of test-stage confidence
+#'   ratings as `c(min = , max = )`, `NULL` when the design collects none).
 #'
 #' @noRd
 .design_spec <- function(design) {
@@ -131,4 +155,56 @@
   }
 
   spec$stages[spec$feedback[spec$stages] %in% TRUE]
+}
+
+
+#' Stages of a design that give no feedback, i.e., test stages
+#'
+#' @inheritParams .feedback_stages
+#'
+#' @returns Character. Stage names in design order.
+#'
+#' @noRd
+.test_stages <- function(design, call = rlang::caller_env()) {
+  spec <- .design_spec(design)
+  setdiff(spec$stages, .feedback_stages(design, call = call))
+}
+
+
+#' Test pairs of a design, with the outcome that is predicted by blocking
+#'
+#' @inheritParams .feedback_stages
+#'
+#' @returns A tibble with one row per test pair and columns `cue1`, `cue2` (in
+#'   canonical order, as in the `trials` component), `blocked`, `control` and
+#'   `expected` (the Stage 3 outcome associated with the control cue).
+#'
+#' @noRd
+.test_pairs <- function(design, call = rlang::caller_env()) {
+  pairs <- .design_spec(design)$test_pairs
+
+  if (is.null(pairs)) {
+    with_pairs <- names(.catlas_design_specs)[
+      !vapply(.catlas_design_specs, function(s) is.null(s$test_pairs), logical(1))
+    ]
+    cli::cli_abort(c(
+            "No test pairs with blocking expectations are recorded for design {.val {design}}.",
+      "i" = "Designs with recorded test pairs: {.val {with_pairs}}."
+    ), call = call)
+  }
+
+  pairs
+}
+
+
+#' Scale of the test-stage confidence ratings of a design
+#'
+#' @inheritParams .feedback_stages
+#'
+#' @returns Integer, `c(min = , max = )`, or `NULL` when the design collects no
+#'   confidence ratings.
+#'
+#' @noRd
+.confidence_scale <- function(design) {
+  .design_spec(design)$confidence
 }
