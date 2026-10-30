@@ -768,9 +768,54 @@ fba_screened <- fba
 The participants removed here stay in `fba_structural`, which the analysis
 uses as its full-sample sensitivity check.
 
-## 8. Save
+## 8. Prior-knowledge exclusion
 
-With the import finished, three bundles can be saved for use by other code,
+Participants who already know a design like this one may answer the test
+according to what they expect the study to show rather than to what they
+learned. The debriefing therefore asks whether the participant has taken part
+in a similar experiment before, and the last rule removes everyone who
+answered yes. The answer is compulsory in the experiment, so no participant
+with a complete run lacks it. Like the learning-based rule, this one never looks
+at the test-stage data.
+
+```{r exclude-prior-knowledge-check, echo=FALSE}
+# The debriefing question is compulsory, so a missing answer would mean that
+# the import went wrong, not that the participant skipped it
+if (anyNA(extract_meta(fba)$prior_knowledge)) {
+  cli::cli_abort(
+          "Some participants are missing the `prior_knowledge` data.",
+    "i" = "The question is compulsory in the form, missing value thus indicates import issue."
+  )
+}
+```
+
+```{r exclude-prior-knowledge}
+fba <- record_exclusion(
+  fba,
+  rule = "prior_knowledge_reported",
+  description = paste(
+    "The participant answered positiviely to the debriefing question asking",
+    "whether they had taken part in a similar experiment before."
+  ),
+  ids = extract_meta(fba)$id[extract_meta(fba)$prior_knowledge %in% TRUE]
+)
+
+fba <- build_fba_rawdata(
+  meta = extract_meta(fba),
+  stimuli = extract_stimuli(fba),
+  trials = extract_trials(fba),
+  provenance = provenance(fba)
+)
+
+provenance(fba)
+
+# The naive set: the primary set without participants reporting prior knowledge
+fba_naive <- fba
+```
+
+## 9. Save
+
+With the import finished, four bundles can be saved for use by other code,
 such as the `CATLAS` notebooks:
 
 | File | Bundle | Use |
@@ -778,11 +823,13 @@ such as the `CATLAS` notebooks:
 | `fba-allergy-online-01-imported.rds` | before any exclusion | attrition and feasibility |
 | `fba-allergy-online-01-structural.rds` | after the structural exclusions | full-sample sensitivity analysis |
 | `fba-allergy-online-01-screened.rds` | after the learning-based exclusions | primary analysis |
+| `fba-allergy-online-01-naive.rds` | after the prior-knowledge exclusion | naive-set sensitivity analysis |
 
 ```{r save, eval = can_run && isTRUE(params$save)}
 write_private_rds(fba_imported,   "fba-allergy-online-01-imported.rds",   overwrite = TRUE)
 write_private_rds(fba_structural, "fba-allergy-online-01-structural.rds", overwrite = TRUE)
 write_private_rds(fba_screened,   "fba-allergy-online-01-screened.rds",   overwrite = TRUE)
+write_private_rds(fba_naive,      "fba-allergy-online-01-naive.rds",      overwrite = TRUE)
 ```
 
 ## Session info
