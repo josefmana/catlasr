@@ -614,7 +614,7 @@ record_exclusion <- function(x, rule, description, ids) {
     cli::cli_warn(c(
             "Some identifiers to exclude are not in this data bundle.",
       "i" = "Unknown ID{?s}: {.val {unknown}}.",
-      "i" = "They are recorded in the rule, withou removing any rows."
+      "i" = "They are recorded in the rule, without removing any rows."
     ))
   }
 
