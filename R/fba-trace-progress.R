@@ -200,7 +200,7 @@ trace_progress <- function(x, silence = FALSE) {
   tested <- sum(progress$test_complete)
 
   cli::cli_inform(c(
-    "i" = ".emph Traced {n} participant{?s}:",
+    "i" = "Traced {n} participant{?s}:",
     "*" = "  {no_trials} without any experiment trial",
     "*" = "  {learned} with complete learning stages,",
     "*" = "  {one_block} with at least one complete test block,",
