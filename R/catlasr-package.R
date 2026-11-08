@@ -1,6 +1,6 @@
 #' The catlasr package provides CATLAS-specific R infrastructure,
 #' including experimental design data, theory-dependent models,
-#' and visual identity functions for manuscript formatting.
+#' and the import, validation and scoring of experimental data.
 
 #' @keywords internal
 "_PACKAGE"

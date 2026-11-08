@@ -199,8 +199,7 @@ rule_book <-
 
 ```{r tbl-rules, echo=FALSE}
 rule_book |>
-  gt::gt(groupname_col = "Source") |>
-  catlasr::apa_style()
+  gt::gt(groupname_col = "Source")
 ```
 
 ```{r write-cues, echo=FALSE}
@@ -320,8 +319,7 @@ outcome_book <-
 
 ```{r tbl-outcomes, echo=FALSE}
 outcome_book |>
-  gt::gt() |>
-  catlasr::apa_style()
+  gt::gt()
 ```
 
 ```{r write-outcomes, echo=FALSE}
