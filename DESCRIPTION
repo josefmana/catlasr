@@ -31,6 +31,7 @@ Suggests:
     glue,
     gt,
     here,
+    httr2,
     jatosR,
     knitr,
     osfr,

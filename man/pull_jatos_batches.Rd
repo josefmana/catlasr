@@ -4,7 +4,7 @@
 \alias{pull_jatos_batches}
 \title{Pull the study results of one or more JATOS batches}
 \usage{
-pull_jatos_batches(url, batch_ids, token)
+pull_jatos_batches(url, batch_ids, token, result_file = NULL)
 }
 \arguments{
 \item{url}{Character(1). Address of the JATOS server, e.g.
@@ -16,12 +16,20 @@ duplicates.}
 \item{token}{Character(1). A JATOS API token, \code{"jap_..."} with or without
 the \code{"Bearer "} prefix. Read it from \code{.Renviron} rather than typing it into
 a script, e.g. \code{Sys.getenv("mindprobe_catlas_token")}.}
+
+\item{result_file}{\code{NULL} (default) or Character(1). Name of a JATOS result
+file that holds the complete data of a study result, e.g.
+\code{"jspsych-data.json"} from \code{fba-allergy-online-02} on. \code{NULL} reads the
+streamed data only, as for builds that upload no result file (e.g.
+\code{fba-allergy-online-01}). See details.}
 }
 \value{
 A tibble with one row per JATOS study result, including the columns
-of \code{jatosR::process_results()$data} (among them \code{id_sr}, \code{batch_id},
-\code{start_date_sr}, \code{study_state} and \code{data_raw}) and \code{jatos_study_id}
-representing the JATOS study each batch belongs to. The time the pull
+of \code{jatosR::process_results()$data} (among them \code{id_sr}, \code{id_cr},
+\code{batch_id}, \code{start_date_sr}, \code{study_state} and \code{data_raw}),
+\code{jatos_study_id} representing the JATOS study each batch belongs to, and
+\code{data_source}, the source of \code{data_raw}: \code{"file"} (the result file),
+\code{"stream"} (the streamed data) or \code{NA} (neither exists). The time the pull
 finished, in UTC, is attached as the attribute \code{"retrieved_at"}, ready for
 \code{\link[=build_provenance]{build_provenance()}}.
 }
@@ -34,6 +42,31 @@ the error.
 \details{
 Batches may belong to different JATOS studies, for instance when a study was
 re-deployed after a patch. \code{jatos_study_id} keeps this fact visible.
+\subsection{Result files}{
+
+CATLAS experiments stream every trial to JATOS as it finishes, and from
+\code{fba-allergy-online-02} on they also upload the complete jsPsych data as a
+result file at the end of the run. A trial whose upload failed, e.g. during
+a dropped internet connection, is missing from the streamed data but present
+in the file. With \code{result_file} given, the file of every study result is
+requested from the JATOS API (\verb{/jatos/api/v1/results/files/}, JATOS 3.8.1
+and later), and the following rule applies:
+\itemize{
+\item Where the file exists, it is read instead of the streamed data. The two
+are never combined, because the file of a finished run repeats every
+streamed trial.
+\item Where it does not exist (unfinished runs, failed uploads), the streamed
+data are read.
+\item Where it exists but does not parse, the streamed data are read, with a
+warning.
+}
+
+Where both exist, the file must hold every streamed trial apart from
+\code{email-collection} records, matched on \code{trial_index}. A file that does not
+is still read, with a warning naming the affected study result. Every call
+reports how many study results were read from each source, names those read
+from the streamed data, and counts the trials recovered from the files.
+}
 }
 \seealso{
 \code{\link[=parse_jatos_results]{parse_jatos_results()}}, \code{\link[=repair_jatos_json]{repair_jatos_json()}}
