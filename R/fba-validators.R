@@ -122,7 +122,7 @@
     dplyr::group_by(.data$id) |>
     dplyr::summarise(
       n_cues     = dplyr::n_distinct(.data$cue1),
-      n_outcomes = dplyr::n_distinct(.data$response),
+      n_outcomes = dplyr::n_distinct(.data$response, na.rm = TRUE),
       .groups    = "drop"
     )
 
@@ -150,11 +150,18 @@
 #' Validate left-right counterbalancing of compound cues
 #'
 #' Every compound cue should appear equally often in each left-right
-#' orientation within a participant.
+#' orientation within a participant. The experiments balance the orientations
+#' within every stage that has an even number of blocks, so a complete run of
+#' such a build is balanced by construction, and an imbalance in such a run
+#' means that the build or the import went wrong. An incomplete run ends in the
+#' middle of a stage and is imbalanced as a matter of course.
 #'
 #' @inheritParams validate_catlas_fba_rawdata
 #'
-#' @returns `x` invisibly; imbalance warns and the offending rows are printed.
+#' @returns `x` invisibly on success. An imbalance aborts for complete runs of
+#'   a design whose stages all have an even number of blocks, and warns for
+#'   incomplete runs or designs with an odd number of blocks in any stage. The
+#'   offending rows of complete runs are printed.
 #'
 #' @noRd
 .validate_fba_counterbalancing <- function(x, call = rlang::caller_env()) {
@@ -182,13 +189,71 @@
 
   imbalanced <- dplyr::filter(counts, .data$order_FALSE != .data$order_TRUE)
 
-  if (nrow(imbalanced) > 0L) {
+  if (nrow(imbalanced) == 0L) {
+    return(invisible(x))
+  }
+
+  blocks <- provenance(x)$blocks
+  balanced_by_design <- all(blocks %% 2L == 0L)
+
+  n_complete <- .fba_expected_trials(x)[["max"]]
+
+  complete_ids <-
+    x$trials |>
+    dplyr::count(.data$id, name = "n") |>
+    dplyr::filter(.data$n == n_complete) |>
+    dplyr::pull("id") |>
+    as.character()
+
+  ids <- unique(as.character(imbalanced$id))
+  ids_complete <- if (balanced_by_design) {
+    intersect(ids, complete_ids)
+  } else {
+    character()
+  }
+  ids_other <- setdiff(ids, ids_complete)
+
+  if (length(ids_other) > 0L) {
+    reason <- if (balanced_by_design) {
+      "An incomplete run ends in the middle of a stage, so this is expected."
+    } else {
+      paste(
+        "Some stage has an odd number of blocks",
+        "({.val {names(blocks)[blocks %% 2L != 0L]}}),",
+        "so the cue orientations cannot balance exactly."
+      )
+    }
     cli::cli_warn(c(
-            "{nrow(imbalanced)} cue compound{?s} {?was/were} not counterbalanced.",
-      "i" = "Affected participant{?s}: {.val {unique(as.character(imbalanced$id))}}.",
-      "i" = "Offending rows printed below."
+      paste(
+        "{length(ids_other)} participant{?s} with cue compounds that were",
+        "not counterbalanced."
+      ),
+      "i" = "ID{?s}: {.val {ids_other}}.",
+      "i" = reason
     ), call = call)
-    print(imbalanced)
+  }
+
+  if (length(ids_complete) > 0L) {
+    offending <- dplyr::filter(
+      imbalanced,
+      as.character(.data$id) %in% ids_complete
+    )
+    print(offending)
+    cli::cli_abort(c(
+      paste(
+        "{nrow(offending)} cue compound{?s} {?was/were} not",
+        "counterbalanced in complete runs."
+      ),
+      "x" = "Participant{?s}: {.val {ids_complete}}.",
+      "i" = paste(
+        "Every stage has an even number of blocks, so a complete run presents",
+        "each compound equally often in both orientations."
+      ),
+      "i" = paste(
+        "Check the experiment build and the import.",
+        "Offending rows printed above."
+      )
+    ), call = call)
   }
 
   invisible(x)
@@ -361,6 +426,73 @@ validate_catlas_fba_rawdata <- function(x, call = rlang::caller_env()) {
   .validate_fba_counterbalancing(x, call = call)
   .validate_fba_test_expectations(x, call = call)
   .validate_fba_confidence(x, call = call)
+
+  invisible(x)
+}
+
+
+#' Validate a forward-blocking-attention raw-data bundle
+#'
+#' Runs every check that [build_fba_rawdata()] runs when it builds a bundle,
+#' so that a bundle can be validated again, e.g. after it was read from disk,
+#' after exclusions were recorded or before any analysis.
+#'
+#' @param x A `catlas_fba_rawdata` object, from [build_fba_rawdata()].
+#' @param silence Logical(1). Suppress the message confirming that the bundle
+#'   passed. Defaults to `FALSE` (recommended).
+#'
+#' @returns `x` invisibly if no check aborts, otherwise an informative error.
+#'
+#' @details
+#' ## Checks shared by every `catlas_rawdata` bundle
+#'
+#' The provenance record, the three components (`meta`, `stimuli`, `trials`)
+#' and their required columns, identifiers aligned across the components,
+#' no participant-identifying columns such as e-mail addresses, platform
+#' metadata, batches aligned with the provenance, participant metadata,
+#' response times and the uniqueness of stimulus mappings.
+#'
+#' ## Checks of the forward-blocking-attention design
+#'
+#' * The study belongs to the `fba` family and every stage of the design is
+#'   present (abort).
+#' * Trial counts lie within the bounds derived from the provenance (warn).
+#' * Every participant saw every cue and used every outcome option (warn).
+#' * Compound cues are counterbalanced left and right (abort for complete runs
+#'   of a design whose stages all have an even number of blocks, warn
+#'   otherwise).
+#' * Test trials present only the test pairs of the design, and `is_correct`
+#'   agrees with the blocking expectations recorded in the design registry
+#'   (abort).
+#' * Confidence ratings lie on the scale of the design (abort), and every
+#'   answered test trial carries one (warn).
+#'
+#' Warnings do not stop the validation, so read them. The message confirming
+#' that the bundle passed refers to the checks that abort only.
+#'
+#' @seealso [build_fba_rawdata()], [record_exclusion()]
+#'
+#' @export
+validate_fba_rawdata <- function(x, silence = FALSE) {
+  if (!inherits(x, "catlas_fba_rawdata")) {
+    cli::cli_abort(c(
+            "`x` must be a {.cls catlas_fba_rawdata} object.",
+      "i" = "Build it with {.fn build_fba_rawdata}."
+    ))
+  }
+
+  if (!rlang::is_bool(silence)) {
+    cli::cli_abort("`silence` must be `TRUE` or `FALSE`.")
+  }
+
+  validate_catlas_fba_rawdata(x, call = rlang::current_env())
+
+  if (!silence) {
+    cli::cli_alert_success(paste(
+      "The {.val {provenance(x)$study}} bundle passed every check that",
+      "aborts. Read any warnings printed below."
+    ))
+  }
 
   invisible(x)
 }
