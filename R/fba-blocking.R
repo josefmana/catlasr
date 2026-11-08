@@ -332,7 +332,11 @@ score_blocking <- function(x, silence = FALSE) {
       timed_out = .data$timed_out %in% TRUE,
       response = dplyr::if_else(.data$timed_out, NA_character_, as.character(.data$response)),
       consistent = .data$response == .data$expected,
-      confidence = if (is.null(scale)) NA_real_ else as.numeric(.data$confidence),
+      confidence = if (is.null(scale)) {
+        NA_real_
+      } else {
+        dplyr::if_else(.data$timed_out, NA_real_, as.numeric(.data$confidence))
+      },
       signed_confidence = .data$confidence * (2 * .data$consistent - 1)
     ) |>
     dplyr::arrange(
