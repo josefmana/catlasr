@@ -1,9 +1,9 @@
 ---
-title: "Generating Stimuli for the Allergy Task"
+title: "Generating Stimuli for the Allergist Task"
 output: rmarkdown::html_vignette
 references: 
 vignette: >
-  %\VignetteIndexEntry{Generating Stimuli for the Allergy Task}
+  %\VignetteIndexEntry{Generating Stimuli for the Allergist Task}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 bibliography: references.bib
