@@ -1,0 +1,804 @@
+# Importing the Forward Blocking Replication Pilot from JATOS
+
+> **This copy was built without access to the data, so the code is shown
+> but was not run. *Prerequisites* section below says how to run it.**
+
+This vignette imports the data of the pilot study
+`fba-allergy-online-01` from the JATOS server that collected them and
+turns the import into a validated `catlas_fba_rawdata` bundle, including
+participant metadata, stimulus mappings and trial-level responses,
+together with a provenance record of where the data came from.
+
+> The pilot ran online between 9^(th) and 26^(th) June 2026, on JATOS at
+> `jatos.mindprobe.eu`, using the three-stage allergy-prediction task
+> from `catlaslab`. It was collected in four JATOS batches.
+
+## Prerequisites
+
+- A JATOS API token with access to the CATLAS study on
+  `jatos.mindprobe.eu`, stored as `mindprobe_catlas_token` in your
+  `.Renviron` (for instance via `usethis::edit_r_environ()`)
+- [`{jatosR}`](https://github.com/visionlabels/jatosR), installed from
+  GitHub via `remotes::install_github("visionlabels/jatosR")`
+- [`{jsonlite}`](https://github.com/jeroen/jsonlite.git)
+- A private folder outside every repository, named by
+  `CATLAS_PRIVATE_DIR` in your `.Renviron`, holding
+  `fba-allergy-online-01/meta-corrections.rds` (see [Corrected
+  self-reports](#corrected-self-reports))
+
+The raw data contain personal information, namely the participants’ age,
+sex and e-mail address, so the vignette saves its data bundles only when
+asked to and only to the private folder[^1]. The import also reads from
+this folder, because the corrections of two untrue self-reports are
+personal data too. To import and save in a single step, run the
+following line from the package root:
+
+``` r
+
+rmarkdown::render(
+  "vignettes/import-jatos-data.Rmd",
+  params = list(save = TRUE)
+)
+```
+
+``` r
+
+library(catlasr)
+library(dplyr)
+library(tidyr)
+library(purrr)
+```
+
+## 1. Data download
+
+The data are downloaded via
+[jatosR](https://github.com/visionlabels/jatosR), one batch at a time,
+implemented within the
+[`pull_jatos_batches()`](https://josefmana.github.io/catlasr/reference/pull_jatos_batches.md)
+function.
+[`pull_jatos_batches()`](https://josefmana.github.io/catlasr/reference/pull_jatos_batches.md)
+checks the connection and the proceeds to download all listed batches,
+naming any batch that could not be pulled. The batch IDs are later
+documented in the provenance record. The data bundle’s validator then
+uses them to check that every participant came from one of the listed
+batches and that each batch contributed at least one record.
+
+``` r
+
+jatos_url <- "https://jatos.mindprobe.eu"                # URL of the server that contains the data
+study_id  <- "forward-blocking-replication-online-pilot" # Custom study ID, does not follow any structure rules
+batch_ids <- c(30206L, 30275L, 30832L, 30829L)           # Batches that contain all the data we want to import
+```
+
+``` r
+
+# The {catlasr} data pull yields a tibble with one row per JATOS study result,
+# combining records from all batches. The download works via the {jatosR}
+# workflow described at https://github.com/visionlabels/jatosR.git.
+jatos_data <- pull_jatos_batches(
+  url = jatos_url,
+  batch_ids = batch_ids,
+  token = Sys.getenv("mindprobe_catlas_token")
+)
+
+jatos_data_summary <- count(jatos_data, batch_id, study_state)
+jatos_data_summary
+```
+
+Each row of `jatos_data` represents one JATOS study result, which
+correspond to a single person once opening the study link. Its `id_sr`
+is used as the participant identifier from now on.
+
+## 2. Repair and parse
+
+The experiment sends every jsPsych trial data to JATOS immediately after
+the trial is finished. JATOS stores these records back to back as
+`{...}{...}{...}` strings without the brackets and commas that would
+make the data a valid JSON array.[^2] The
+[`repair_jatos_json()`](https://josefmana.github.io/catlasr/reference/repair_jatos_json.md)
+function adds both missing parts:
+
+``` r
+
+# This code runs even without the data, so it names its package explicitly:
+json_string <- catlasr::repair_jatos_json('{"trial_type":"consent","response":1}{"trial_type":"stimuli-map"}')
+json_string
+#> [1] "[{\"trial_type\":\"consent\",\"response\":1},{\"trial_type\":\"stimuli-map\"}]"
+
+# The repaired data can then be parsed via the {jsonlite}:
+jsonlite::parse_json(json_string, simplifyVector = TRUE)
+#>    trial_type response
+#> 1     consent        1
+#> 2 stimuli-map       NA
+```
+
+[`parse_jatos_results()`](https://josefmana.github.io/catlasr/reference/parse_jatos_results.md)
+applies the repair to every result and then parses each result
+separately, so a single damaged result cannot stop the rest from being
+read. It also coerces the `response` column to character for every
+result. This step is important because the consent screen records the
+button pressed as a number, whereas learning trials record the chosen
+outcome as text. Consequently, without the coercion, a participant who
+declined consent would have a numeric `response` column that cannot be
+joined to everyone else’s data.
+
+``` r
+
+# `parse_jatos_results()` in a single line adds columns `id` (the JATOS result
+# ID as text), `jspsych` (one data frame of trials per result, `NULL` when
+# nothing could have been parsed), and `has_data` (logical indicating whether
+# anything was parsed), keeping the JATOS metadata columns such as `batch_id`
+# and `start_date_sr`
+results <- parse_jatos_results(jatos_data)
+
+# Next, we manually unroll the `jspsych` data frames, creating a long-format
+# table with one row per recorded trial of each participant
+jspsych <-
+  results |>
+  filter(has_data) |>
+  select(id, jspsych) |>
+  unnest(jspsych)
+```
+
+Results without parseable data remain in `results`, so that section 6
+can exclude them explicitly and the final data bundle records them
+honestly. However, they are absent from `jspsych`, the long-format table
+built above, because they have no trials to unroll.
+
+``` r
+
+count(results, batch_id, has_data)
+nrow(results)
+nrow(jspsych)
+```
+
+## 3. Provenance
+
+[catlasr](https://github.com/josefmana/catlasr) is designed with the
+goal of ensuring transparency in the processes behind CATLAS studies in
+mind. The provenance feature of CATLAS data is one of the tools for
+making researchers catalogue their data and data-sampling process
+thoroughly.
+
+The provenance record serves to document what study the data come from,
+as well as when and how they were collected. This is done via the
+[`build_provenance()`](https://josefmana.github.io/catlasr/reference/build_provenance.md)
+function, which takes in the following parameters:
+
+| Variable type | Parameter(s) | Use case |
+|:---|:--:|:---|
+| **Study identifiers** | `study`, `design` | CATLAS study ID and design options mapping. Both are more closely discussed in the documentation, see [`help("build_provenance")`](https://josefmana.github.io/catlasr/reference/build_provenance.md). |
+| **Procedure variables** | `blocks`, `trial_types` | State how many blocks of each stage participants were asked to complete and how many trial types each block contains. |
+| **Data-sampling platform** | `origin` | Lists data collection `platform` as well as a custom `study_id`, and the `batch_ids`, if applicable. |
+| **Timing variables** | `collected_between`, `retrieved_at` | State when the participants underwent the task and when the data were imported to CATLAS. |
+| **Experiment specification** | `experiment_build` | Links to the software code used to create the experiment. |
+| **Other things** | `notes`, `guided` | `notes` is there for anything worth knowing about the data that fits no other field; `guided = TRUE` builds the record interactively in the R console instead of filling it in manually in a script. |
+
+``` r
+
+# Timing variables can be derived from the data themselves: the collection
+# window from the start times JATOS recorded, the retrieval time from the moment
+# `pull_jatos_batches()` finished
+collected_between <- c(
+  first = as.Date(min(results$start_date_sr, na.rm = TRUE), tz = "Europe/Prague"),
+  last  = as.Date(max(results$start_date_sr, na.rm = TRUE), tz = "Europe/Prague")
+)
+retrieved_at <- attr(jatos_data, "retrieved_at")
+
+# NOTE: Writing CATLAS data provenance correctly is one of the most important
+# data import steps. Not only is it the point at which the researcher documents
+# the origins of their data, the data bundle-building functions will also not
+# work unless they receive a valid `catlas_provenance` object.
+prov <- build_provenance(
+  study = "fba-allergy-online-01",
+  design = "three-stage-replication",
+  blocks = c(
+    stage1 = 10L,
+    stage2 = 8L,
+    stage3 = 6L,
+    test = 6L
+  ),
+  trial_types = 8L,
+  origin = list(
+    platform = "JATOS",
+    url = jatos_url,
+    study_id = study_id,
+    batch_ids = batch_ids
+  ),
+  collected_between = collected_between,
+  retrieved_at = retrieved_at,
+  experiment_build = list(
+    repo = "josefmana/catlaslab",
+    release = "fba-allergy-online-01",
+    commit = NA_character_
+  ),
+  notes = paste(
+    "A small number of early runs (all in the 30206 batch) used the experiment",
+    "build preceding the 10 June 2026 debriefing patch, which renamed",
+    "debriefing variables only. Experimental trials are identical in both",
+    "builds. All runs are thus treated alike. The self-reported sex and age",
+    "of two participants of the 30206 batch were replaced with their true",
+    "values, known to the experimenter, which are kept in the private folder."
+  )
+)
+
+prov
+```
+
+You may notice that the object states that no exclusion rules were
+applied yet. Indeed, we have only prepared a provenance record, without
+attaching it to any data. Once the data bundle is created, we can start
+excluding records that do not meet inclusion criteria, while appending
+the reasons to the data bundle provenance record.
+
+## 4. Data bundle components
+
+A `catlas_fba_rawdata` bundle has three components, all keyed by the
+participant identifier `id`. They are:
+
+| Component | Content |
+|:---|:---|
+| `meta` | Metadata including participants’ demographic characteristics and experiment set-up, optionally browser and computer variables if run online. **Must not contain any e-mail fields.** |
+| `stimuli` | Participant-wise mapping of the concrete stimuli to their abstract representations in the study design. |
+| `trials` | Single-trial response data. |
+
+### Participant metadata
+
+Contains one row per JATOS study record, including records that will be
+excluded. This is done deliberately, so that every exclusion can be
+documented with a reference to a known participant/record. Screen and
+browser details come from the jsPsych browser check, while sex and age
+come from the demography form. The duration of the run is calculated
+from the start and end times JATOS recorded, and only for finished runs,
+because JATOS does not record a reliable end for the rest. Prior
+knowledge comes from the debriefing question asking whether the
+participant had taken part in a similar experiment before. The free-text
+comment of the debriefing is not imported, as it may contain anything,
+including contact details. The e-mail address collected by the
+experiment is intentionally dropped, and
+[`build_fba_rawdata()`](https://josefmana.github.io/catlasr/reference/build_fba_rawdata.md)
+refuses any bundle that includes e-mail fields to prevent personal data
+being pushed to a public repository.
+
+``` r
+
+meta_cols <- c(
+  "sex", "age",                                                        # Demographics
+  "width", "height", "browser", "browser_version", "os", "vsync_rate"  # Browser data
+)
+
+meta <-
+  results |>
+  mutate(
+    duration_min = if_else(
+      study_state == "FINISHED",
+      as.numeric(difftime(end_date_sr, start_date_sr, units = "mins")),
+      NA_real_
+    )
+  ) |>
+  select(
+    id,           # For cross-reference across data-bundle components
+    batch_id,     # For cross-reference with the provenance record
+    duration_min  # For the feasibility audit
+  ) |>
+  left_join(
+    jspsych |>
+      select(id, all_of(meta_cols)) |>
+      summarise(across(everything(), \(x) first(na.omit(x))), .by = id),
+    by = "id"
+  ) |>
+  left_join(
+    jspsych |>
+      filter(trial_type == "debrief") |>
+      select(id, any_of("prior_knowledge")) |>
+      summarise(prior_knowledge = as.logical(first(na.omit(prior_knowledge))), .by = id),
+    by = "id"
+  ) |>
+  mutate(age = as.numeric(age)) # The demography form returns age as character
+
+# Count the records in each batch and the records missing `age`. `n` is an upper
+# bound on the number of participants, because one person could have run the
+# experiment more than once and some records will fail the inclusion criteria.
+# `missing_age` counts records that most likely ended before the experimental
+# task, since the demography form precedes it.
+meta_summary <- summarise(
+  meta,
+  n = n(),
+  missing_age = sum(is.na(age)),
+  .by = batch_id
+)
+
+meta_summary
+```
+
+### Corrected self-reports
+
+Two participants of the 30206 batch, both from the experimenter’s
+family, entered an untrue sex or age in the demography form. Since the
+experimenter knows their true values, the code below replace the
+self-reports. The corrections comprise personal data and therefore live
+in the private folder, keyed by participant ID, not in this vignette.
+[`rows_update()`](https://dplyr.tidyverse.org/reference/rows.html)
+aborts if a corrected ID is not in `meta`, so a stale correction cannot
+pass silently. The counts above describe the records as collected,
+before this correction.
+
+``` r
+
+meta <- rows_update(
+  meta,
+  read_private_rds("fba-allergy-online-01/meta-corrections.rds"),
+  by = "id"
+)
+```
+
+### Stimulus mappings
+
+Every participant saw the abstract cues (`A` to `Z`, `alpha`, `beta`)
+and outcomes (`o1` to `o4`) as randomly assigned chemical names and side
+effects, respectively. The experiment saves this assignment at the start
+as two JSON strings. In the `three-stage-replication` study design,
+outcome images are named `<context>_<side effect>`, with `context`
+referring to one of two imaginary patients and `side effect`
+representing the outcome value. Each outcome thus gets two columns in
+the `stimuli` component, one for its side effect only (`o1` to `o4`) and
+one for the patient/context it belongs to (`o1_context` to `o4_context`)
+
+``` r
+
+# In the `three-stage-*` forward blocking paradigm, cues are represented by
+# letters and outcomes by numbers prefixed by a lowercase "o".
+cue_labels <- c(LETTERS, "alpha", "beta")
+outcome_labels <- paste0("o", 1:4)
+
+stimuli <-
+  jspsych |>
+  filter(trial_type == "stimuli-map") |> # The trial containing a random participant-specific mapping
+  mutate(map = map2(cueMap, outcomeMap, function(cues, outcomes) {
+    bind_cols(
+      tibble::as_tibble(jsonlite::fromJSON(cues)),
+      tibble::as_tibble(jsonlite::fromJSON(outcomes))
+    )
+  })) |>
+  select(id, map) |>
+  unnest(map) |>
+  select(
+    id,
+    all_of(cue_labels),
+    all_of(outcome_labels)
+  ) |>
+  mutate(
+    across(all_of(outcome_labels), \(x) sub("_.*$", "", x), .names = "{.col}_context"),
+    across(all_of(outcome_labels), \(x) sub("^.*_", "", x))
+  )
+
+head(stimuli, 5L)
+```
+
+Apart from linking concrete stimuli to their abstract roles in the
+experiment, e.g., for use in hierarchical modelling accounting for
+stimulus effects (although these should be taken care of by
+randomisation), the `stimuli` component can be used to check how well
+randomised the stimulus-role pairing ended up.
+
+### Trials
+
+During the experiment, the cues of each trial are recorded as a single
+string, with the cue labels in the order they appeared on the screen,
+from left to right.
+[`fba_cues_map()`](https://josefmana.github.io/catlasr/reference/fba_cues_map.md)
+function exists to turn this string into the cue pair in its canonical
+order, i.e., `cue1` and `cue2`. It records separately whether the cue
+pair was shown in reversed order or not. Both presentation orders of a
+pair therefore land on the same `cue1` and `cue2` values, while a single
+cue trial records `cue2` and the order variable as `NA`s:
+
+``` r
+
+# This code runs even without the data, so it names its packages explicitly:
+catlasr::fba_cues_map("three-stage-replication") |>
+  dplyr::filter(label %in% c("A", "AB", "BA"))
+#> # A tibble: 3 × 4
+#>   label cue1  cue2  cues_reversed
+#>   <chr> <chr> <chr> <lgl>        
+#> 1 A     A     NA    NA           
+#> 2 AB    A     B     FALSE        
+#> 3 BA    A     B     TRUE
+```
+
+``` r
+
+# NOTE: It makes a lot of sense to provide provenance-recorded design to the
+# `fba_cues_map()` function rather than writing it down manually to ensure
+# smooth compatibility.
+cues_map <- fba_cues_map(prov$design)
+```
+
+``` r
+
+trial_cols <- c(
+  "stage", "block", "type", "cues",        # Experiment design
+  "response", "is_correct", "confidence",  # Primary outcomes
+  "rt1", "rt2", "timed_out"                # Time variables
+)
+
+trials <-
+  jspsych |>
+  filter(trial_type == "experiment-trial") |> # The experiment labels its trial via a handy custom jsPsych type
+  select(
+    id,
+    all_of(trial_cols)
+  ) |>
+  left_join(
+    cues_map,
+    by = c("cues" = "label")
+  )
+```
+
+``` r
+
+# Before building the data bundle, let's shuffle columns into their canonical
+# order, dropping the `cues` string in the process, as it is fully determined by
+# `cue1`, `cue2` and `cues_reversed`.
+trials <-
+  trials |>
+  relocate(cue1, cue2, cues_reversed, .after = type) |>
+  select(-cues)
+
+# Let us also inspect the first trial of each stage:
+trials |>
+  group_by(stage) |>
+  slice(1L) |>
+  ungroup()
+```
+
+The `trials` component of the data bundle contains the experiment
+proper, i.e., the data the study was designed to collect and analyse. In
+this study, `trials` contain four main types of rows, one for each stage
+of the experiment:
+
+- **`stage1`**  
+  trials contain a single cue (`cue1`) and a single response
+  (`response`),
+- **`stage2`**  
+  trials add a second cue (`cue2`) with left-right counterbalancing
+  indicated by the `cues_reversed` variable,
+- **`stage3`**  
+  trials copy `stage2` formally, but change the context (patient) of the
+  outcome options as well as the options themselves (evident as change
+  from `o1`, `o2` to `o3`, `o4` options in `response`),
+- **`test`**  
+  trials contain compound cues and add confidence ratings on top of the
+  two-alternative forced choice decision (yielding non-NA `confidence`
+  and `rt2` records)[^3].
+
+## 5. Build
+
+With all three components and the provenance record at hand, we can
+proceed to building the CATLAS data bundle itself.
+[`build_fba_rawdata()`](https://josefmana.github.io/catlasr/reference/build_fba_rawdata.md)
+constructs the bundle and validates it. Structural problems abort the
+process outright, while anything suspicious that might just be a
+property of a participant warns, naming the participants concerned.
+
+``` r
+
+fba <- build_fba_rawdata(
+  meta       = meta,
+  stimuli    = stimuli,
+  trials     = trials,
+  provenance = prov
+)
+
+fba
+
+# The object is kept as imported, before any exclusion, so that the later
+# feasibility audit can see where the excluded participants stopped
+fba_imported <- fba
+```
+
+The console record above shows several warning messages. At this point
+of the data bundle-building process, the warnings are expected. They
+list the records without data, the participants who stopped early, and
+so on. These are then turned into recorded exclusions in section 6.
+
+## 6. Structural exclusions
+
+In this section, we apply three exclusion rules and implement them using
+the
+[`record_exclusion()`](https://josefmana.github.io/catlasr/reference/record_exclusion.md)
+function, which applies the criteria, documents the reasons, and appends
+them to the data bundle’s provenance record.
+
+The rules listed here are ordered by how early in a run they apply and
+executed in that order. A participant is counted under the first rule
+that removes them.
+
+### No jsPsych data
+
+Some JATOS study results may be empty, i.e., containing no jsPsych data
+at all. Such records represent artefacts that are not relevant for the
+study in question.
+
+``` r
+
+fba <- record_exclusion(
+  fba,
+  rule = "no_jspsych_data",
+  description = paste(
+    "The JATOS study result holds no jsPsych data that can be parsed, for",
+    "instance because the study link was opened but no trial record reached",
+    "the server."
+  ),
+  ids = results$id[!results$has_data]
+)
+```
+
+### Declined to participate
+
+Participants who declined consent still left records on JATOS from the
+screens preceding the consent form, such as the cue and outcome
+randomisation map. Consequently, their records need to be excluded
+before any further processing.
+
+``` r
+
+# The consent form records decline to participate as `response` of `"0"`
+declined <- unique(jspsych$id[jspsych$trial_type == "consent" & jspsych$response %in% "0"])
+
+fba <- record_exclusion(
+  fba,
+  rule = "declined_consent",
+  description = paste(
+    "The participant declined on the informed-consent screen, which ends the",
+    "experiment before the first learning trial."
+  ),
+  ids = declined
+)
+```
+
+### Incomplete run
+
+To allow for a valid analysis of blocking indices that constitute the
+primary endpoints of the study, at least one test block must be present
+in the data. At this point in the workflow, participants with missing
+learning-trial records who underwent and recorded at least one test
+block are retained, as their data still allow for primary endpoints
+calculation.
+
+``` r
+
+# The number of distinct trial types per block can and should be extracted from
+# provenance at this stage:
+n_types <- provenance(fba)$trial_types
+
+completed_test_trials <-
+  extract_meta(fba) |>
+  select(id) |>
+  left_join(
+    extract_trials(fba) |>
+      summarise(
+        n = sum(stage == "test"),
+        .by = id
+      ),
+    by = "id"
+  ) |>
+  mutate(n = coalesce(n, 0L)) # Test trials missing altogether recorded as `NA` should be treated as zeroes
+
+fba <- record_exclusion(
+  fba,
+  rule = "incomplete_run",
+  description = sprintf(
+    "The run does not contain at least one complete test block of %d trials.",
+    n_types
+  ),
+  ids = completed_test_trials$id[completed_test_trials$n < n_types]
+)
+```
+
+### Exclusion records
+
+The provenance record now carries the three rules together with their
+verbal description and the number of participants each removed:
+
+``` r
+
+print(provenance(fba), exclusions = "long")
+```
+
+### Data bundle rebuild
+
+Rebuilding the bundle from its components re-runs every check on the
+remaining data following the exclusions. Warnings that survive this step
+are no longer simply informing about incomplete runs and are worth
+reading closely.
+
+``` r
+
+fba <- build_fba_rawdata(
+  meta = extract_meta(fba),
+  stimuli = extract_stimuli(fba),
+  trials = extract_trials(fba),
+  provenance = provenance(fba)
+)
+
+fba
+
+# These data comprise the full sample, i.e., every participant with a complete
+# run, before applying any rule that depends on their responses
+fba_structural <- fba
+```
+
+## 7. Learning-based exclusions
+
+In theory, blocking can only be measured in participants who learned the
+contingencies of all three learning stages. Consequently, the last
+exclusion rule removes participants whose learning cannot be reliably
+told apart from guessing. The functions via which learning-based
+exclusion is computed use learning stages data only, they do not peek at
+the test-stage data, keeping the rule blind to the outcome of the study.
+
+The rule takes three deliberate, consecutive steps:
+
+- [`score_learning()`](https://josefmana.github.io/catlasr/reference/score_learning.md)
+  counts the answered and correct trials per participant, stage,
+  contingency type and block.
+- [`test_learning()`](https://josefmana.github.io/catlasr/reference/test_learning.md)
+  then asks, for every participant and stage, whether there were more
+  correct responses than what guessing would plausibly produce (a
+  one-sided exact binomial test against 0.5), and reports the cut-off,
+  i.e., the smallest number of correct responses at which guessing is
+  rejected.
+- Finally,
+  [`screen_learning()`](https://josefmana.github.io/catlasr/reference/screen_learning.md)
+  marks for exclusion every participant who, in one or more stages, did
+  not score significantly above chance, and says why.
+
+All three functions are intentionally talkative; they state their
+assumptions and summarise the process, so that the user does not take
+their results as is, but is rather reminded about their potential
+shortcomings:
+
+``` r
+
+learning_alpha  <- 0.10
+learning_scores <- score_learning(fba)
+learning_tests  <- test_learning(learning_scores, alpha = learning_alpha)
+learning_screen <- screen_learning(learning_tests, rule = "any")
+
+learning_screen |>
+  filter(exclude) |>
+  select(id, failed_stages, reason)
+```
+
+At `alpha = 0.10`, the Stage 3 cut-off roughly equals the 60% criterion
+used in the literature. A participant who guesses throughout the full
+experiment passes all three stages with a probability below 0.001
+([`help("test_learning")`](https://josefmana.github.io/catlasr/reference/test_learning.md)
+explains the choice more thoroughly).
+
+Here, the rule’s description is built from the same `alpha` and from the
+design recorded in provenance, so that the sentence in the provenance
+record and the rule that was applied cannot disagree:
+
+``` r
+
+stages  <- c("stage1", "stage2", "stage3")
+n_stage <- provenance(fba)$blocks[stages] * provenance(fba)$trial_types
+k_stage <- stats::qbinom(1 - learning_alpha, n_stage, 0.5) + 1
+
+fba <- record_exclusion(
+  fba,
+  rule = "learning_not_reliably_above_chance",
+  description = sprintf(
+    paste(
+      "The participant did not score significantly above chance in at least",
+      "one of the three learning stages, as decided by a one-sided exact",
+      "binomial test of the number of correct responses against 0.5 at alpha =",
+      "%.2f over all answered trials of the stage (timed-out trials excluded).",
+      "On complete data, fewer than %d of %d correct in Stage 1, %d of %d in",
+      "Stage 2, or %d of %d in Stage 3. A stage without any answered trial",
+      "counts as failed."
+    ),
+    learning_alpha,
+    k_stage[1], n_stage[1],
+    k_stage[2], n_stage[2],
+    k_stage[3], n_stage[3]
+  ),
+  ids = learning_screen$id[learning_screen$exclude]
+)
+
+fba <- build_fba_rawdata(
+  meta = extract_meta(fba),
+  stimuli = extract_stimuli(fba),
+  trials = extract_trials(fba),
+  provenance = provenance(fba)
+)
+
+provenance(fba)
+
+# The final dataset for the primary analysis
+fba_screened <- fba
+```
+
+The participants removed here stay in `fba_structural`, which the
+analysis uses as its full-sample sensitivity check.
+
+## 8. Prior-knowledge exclusion
+
+Participants who already know a design like this one may answer the test
+according to what they expect the study to show rather than to what they
+learned. The debriefing therefore asks whether the participant has taken
+part in a similar experiment before, and the last rule removes everyone
+who answered yes. The answer is compulsory in the experiment, so no
+participant with a complete run lacks it. Like the learning-based rule,
+this one never looks at the test-stage data.
+
+``` r
+
+fba <- record_exclusion(
+  fba,
+  rule = "prior_knowledge_reported",
+  description = paste(
+    "The participant answered positiviely to the debriefing question asking",
+    "whether they had taken part in a similar experiment before."
+  ),
+  ids = extract_meta(fba)$id[extract_meta(fba)$prior_knowledge %in% TRUE]
+)
+
+fba <- build_fba_rawdata(
+  meta = extract_meta(fba),
+  stimuli = extract_stimuli(fba),
+  trials = extract_trials(fba),
+  provenance = provenance(fba)
+)
+
+provenance(fba)
+
+# The naive set: the primary set without participants reporting prior knowledge
+fba_naive <- fba
+```
+
+## 9. Save
+
+With the import finished, four bundles can be saved for use by other
+code, such as the `CATLAS` notebooks, into the study folder
+`fba-allergy-online-01` of the private folder:
+
+| File | Bundle | Use |
+|:---|:---|:---|
+| `fba-allergy-online-01/imported.rds` | before any exclusion | attrition and feasibility |
+| `fba-allergy-online-01/structural.rds` | after the structural exclusions | full-sample sensitivity analysis |
+| `fba-allergy-online-01/screened.rds` | after the learning-based exclusions | primary analysis |
+| `fba-allergy-online-01/naive.rds` | after the prior-knowledge exclusion | naive-set sensitivity analysis |
+
+``` r
+
+write_private_rds(fba_imported,   "fba-allergy-online-01/imported.rds",   overwrite = TRUE)
+write_private_rds(fba_structural, "fba-allergy-online-01/structural.rds", overwrite = TRUE)
+write_private_rds(fba_screened,   "fba-allergy-online-01/screened.rds",   overwrite = TRUE)
+write_private_rds(fba_naive,      "fba-allergy-online-01/naive.rds",      overwrite = TRUE)
+```
+
+## Session info
+
+``` r
+
+sessioninfo::session_info()
+```
+
+[^1]: [`write_private_rds()`](https://josefmana.github.io/catlasr/reference/write_private_rds.md)
+    refuses any folder that lies inside a git repository, so the bundles
+    cannot be pushed online by accident.
+
+[^2]: Valid JSON array for this type of data is of the form
+    `[{...}, {...}, {...}]`. See, e.g.,
+    <https://www.w3resource.com/JSON/snippets/json-array-syntax.php>.
+
+[^3]: The data also contain an `is_correct` flag indicating whether the
+    participants responded according to the expectations. In the first
+    three stages, which consist of learning with feedback, this column
+    means what it says, i.e., a correct response. In the `test` stage,
+    there is no correct answer and `is_correct` is thus stricly speaking
+    a misnomer. Instead, it says whether the participants responded in a
+    way that is consistent with a successful blocking.

@@ -1,0 +1,10 @@
+pandoc: 3.8.3
+pkgdown: 2.2.1
+pkgdown_sha: ~
+articles:
+  import-jatos-data: import-jatos-data.html
+  stimuli-allergist-task: stimuli-allergist-task.html
+last_built: 2026-11-15T15:47Z
+urls:
+  reference: https://josefmana.github.io/catlasr/reference
+  article: https://josefmana.github.io/catlasr/articles
