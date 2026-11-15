@@ -1,8 +1,7 @@
-# Participant-level metadata (one row per participant)
+# Participant-level metadata (one row per participant). Demographics (`sex`,
+# `age`) are optional, so that shared data sets can leave them out.
 .required_rawdata_meta_cols <- c(
   "id",
-  "sex",
-  "age",
   "width",
   "height",
   "os"
@@ -30,7 +29,7 @@
   JATOS = c("batch_id", "browser", "browser_version", "os", "vsync_rate")
 )
 
-# Column names that identify a person and cannot thus be exported
+# Column names that identify a person or contain free text that may do so
 .forbidden_meta_cols <- c(
   "email",
   "emails",
@@ -39,7 +38,9 @@
   "mail",
   "email_address",
   "prolific_pid",
-  "subject_id"    # the name of PROLIFIC ID stored under `catlaslab` build from 2026-06-18
+  "subject_id",   # the name of PROLIFIC ID stored under `catlaslab` build from 2026-06-18
+  "prior_guess",  # free-text debriefing answer, present from `fba-allergy-online-02` on
+  "comment"       # free-text debriefing comment
 )
 
 
@@ -255,6 +256,9 @@
 
 #' Refuse a data bundle that carries participant-identifying columns
 #'
+#' Free-text answers count as such too, because a participant may type anything
+#' into them, including contact details.
+#'
 #' @inheritParams .validate_components
 #'
 #' @returns `x` invisibly on success, otherwise an informative error.
@@ -275,10 +279,16 @@
       vapply(offending, paste, character(1L), collapse = ", ")
     )
     cli::cli_abort(c(
-            "A data bundle must not carry participant-identifying columns.",
+      paste(
+        "A data bundle must not carry participant-identifying or free-text",
+        "columns."
+      ),
       "x" = "Found such column{?s} in {length(offending)} component{?s}.",
       rlang::set_names(bullets, rep("x", length(bullets))),
-      "i" = "Keep identifying data such as e-mail addresses outside the bundle and outside the repository."
+      "i" = paste(
+        "Keep identifying data such as e-mail addresses and free-text",
+        "answers outside the bundle and outside the repository."
+      )
     ), call = call)
   }
 
@@ -290,12 +300,18 @@
 #'
 #' @inheritParams .validate_components
 #'
+#' Applies only when `meta` carries `age`, which shared data sets leave out.
+#'
 #' @returns `x` invisibly; out-of-range ages warn rather than abort, because a
 #'   genuine 17-year-old in a student sample is a consent question rather than
 #'   a corrupt file.
 #'
 #' @noRd
 .validate_participant_meta <- function(x, call = rlang::caller_env()) {
+  if (!"age" %in% names(x$meta)) {
+    return(invisible(x))
+  }
+
   if (!is.numeric(x$meta$age)) {
     cli::cli_abort(c(
             "`meta$age` must be numeric.",
