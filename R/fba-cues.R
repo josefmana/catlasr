@@ -28,7 +28,7 @@
 #'
 #' @export
 fba_cues_map <- function(design = "three-stage-replication") {
-  if (!is.character(design) || length(design) != 1L || !design %in% .catlas_designs) {
+  if (!rlang::is_string(design) || !design %in% .catlas_designs) {
     cli::cli_abort(c(
             "`design` must be one recognised study design.",
       "x" = "Received {.val {design}}.",

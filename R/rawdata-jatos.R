@@ -131,7 +131,7 @@ pull_jatos_batches <- function(
     )
   )
 
-  if (!is.character(url) || length(url) != 1L || is.na(url) || !nzchar(url)) {
+  if (!rlang::is_string(url) || !nzchar(url)) {
     cli::cli_abort("`url` must be a single non-empty string.")
   }
 
@@ -152,7 +152,7 @@ pull_jatos_batches <- function(
     ))
   }
 
-  if (!is.character(token) || length(token) != 1L || is.na(token) || !nzchar(token)) {
+  if (!rlang::is_string(token) || !nzchar(token)) {
     cli::cli_abort(c(
             "`token` must be a single non-empty string.",
       "i" = "An empty token usually means the variable is missing from {.file .Renviron} or that R was not restarted after adding it."
@@ -160,8 +160,7 @@ pull_jatos_batches <- function(
   }
 
   if (!is.null(result_file)) {
-    if (!is.character(result_file) || length(result_file) != 1L ||
-        is.na(result_file) || !nzchar(result_file) ||
+    if (!rlang::is_string(result_file) || !nzchar(result_file) ||
         grepl("/", result_file, fixed = TRUE)) {
       cli::cli_abort(c(
               "`result_file` must be `NULL` or a single file name.",

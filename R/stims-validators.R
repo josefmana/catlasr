@@ -57,7 +57,7 @@ validate_catlas_stimulus <- function(x) {
     ))
   }
 
-  if (!is.character(x$type) || length(x$type) != 1L || is.na(x$type)) {
+  if (!rlang::is_string(x$type)) {
     cli::cli_abort(c(
             "`type` must be a single, non-missing character string.",
       "i" = "Provided `type` is a {.cls {class(x$type)}}
