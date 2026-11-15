@@ -4,15 +4,30 @@
 \alias{format.catlas_provenance}
 \title{Format a \code{catlas_provenance} record}
 \usage{
-\method{format}{catlas_provenance}(x, ...)
+\method{format}{catlas_provenance}(
+  x,
+  exclusions = c("short", "long"),
+  width = min(getOption("width", 80L), 80L),
+  ...
+)
 }
 \arguments{
 \item{x}{A \code{catlas_provenance} object.}
 
+\item{exclusions}{Character(1). How to show the exclusion rules: \code{"short"}
+(default) lists each rule by name with its participant count, \code{"long"}
+adds the rule's description.}
+
+\item{width}{Integer(1). Width at which notes and exclusion rules are
+wrapped. Defaults to the console width, at most 80 characters.}
+
 \item{...}{Currently unused.}
 }
 \value{
-A character vector, one element per line.
+A character vector, one element per line: the header fields, then
+any notes, the exclusion rules in the order they were applied, and any
+deferred exclusion rules, each with its participant count and, if
+\code{exclusions = "long"}, its description wrapped at \code{width}.
 }
 \description{
 Format a \code{catlas_provenance} record

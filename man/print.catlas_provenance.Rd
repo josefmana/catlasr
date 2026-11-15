@@ -9,7 +9,8 @@
 \arguments{
 \item{x}{A \code{catlas_provenance} object.}
 
-\item{...}{Passed to \code{\link[=format.catlas_provenance]{format.catlas_provenance()}}.}
+\item{...}{Passed to \code{\link[=format.catlas_provenance]{format.catlas_provenance()}}, e.g.
+\code{exclusions = "long"} to show the description of every exclusion rule.}
 }
 \value{
 \code{x} invisibly.

@@ -48,7 +48,7 @@
     arg = "study",
     call = rlang::caller_env()
 ) {
-  if (!is.character(study) || length(study) != 1L || is.na(study)) {
+  if (!rlang::is_string(study)) {
     study_class <- paste(class(study), collapse = " / ")
     cli::cli_abort(c(
             "`{arg}` must be a single non-missing character string.",
@@ -638,15 +638,32 @@ record_exclusion <- function(x, rule, description, ids) {
 #' Format a `catlas_provenance` record
 #'
 #' @param x A `catlas_provenance` object.
+#' @param exclusions Character(1). How to show the exclusion rules: `"short"`
+#'   (default) lists each rule by name with its participant count, `"long"`
+#'   adds the rule's description.
+#' @param width Integer(1). Width at which notes and exclusion rules are
+#'   wrapped. Defaults to the console width, at most 80 characters.
 #' @param ... Currently unused.
 #'
-#' @returns A character vector, one element per line.
+#' @returns A character vector, one element per line: the header fields, then
+#'   any notes, the exclusion rules in the order they were applied, and any
+#'   deferred exclusion rules, each with its participant count and, if
+#'   `exclusions = "long"`, its description wrapped at `width`.
 #'
 #' @export
-format.catlas_provenance <- function(x, ...) {
+format.catlas_provenance <- function(
+    x,
+    exclusions = c("short", "long"),
+    width = min(getOption("width", 80L), 80L),
+    ...
+) {
+  exclusions <- rlang::arg_match(exclusions)
+  long <- exclusions == "long"
   blocks <- x$blocks[.design_spec(x$design)$stages]
+  applied <- x$exclusions
+  deferred <- x$deferred_exclusions
 
-  c(
+  header <- c(
     "<catlas_provenance>",
     sprintf("  study      : %s", x$study),
     sprintf("  design     : %s", x$design),
@@ -671,13 +688,15 @@ format.catlas_provenance <- function(x, ...) {
           "%s to %s (%d days)",
           x$collected_between[["first"]],
           x$collected_between[["last"]],
-          as.integer(x$collected_between[["last"]] - x$collected_between[["first"]]) + 1L
+          as.integer(
+            x$collected_between[["last"]] - x$collected_between[["first"]]
+          ) + 1L
         )
       }
     ),
     sprintf("  retrieved  : %s", format(x$retrieved_at, usetz = TRUE)),
     sprintf(
-      "  exp. build : %s @ %s",
+      "  exp. build : %s@%s",
       x$experiment_build$repo,
       .first_present(
         x$experiment_build$release,
@@ -685,30 +704,101 @@ format.catlas_provenance <- function(x, ...) {
         fallback = "unversioned"
       )
     ),
-    sprintf("  exclusions : %d rule(s) applied", length(x$exclusions)),
+    sprintf(
+      "  exclusions : %d rule(s) applied, %d participant(s) excluded%s",
+      length(applied),
+      sum(vapply(applied, \(e) as.integer(e$n), integer(1L))),
+      if (length(deferred) > 0L) {
+        sprintf("; %d rule(s) deferred", length(deferred))
+      } else {
+        ""
+      }
+    ),
     sprintf("  catlasr    : %s", x$catlasr_version)
   )
+
+  notes <- if (length(x$notes) > 0L) {
+    c(
+      "",
+      "Notes:",
+      unlist(lapply(x$notes, \(n) {
+        strwrap(n, width = width, indent = 2L, exdent = 2L)
+      }))
+    )
+  }
+
+  c(
+    header,
+    notes,
+    .format_exclusions(
+      applied,
+      title = "Exclusion rules, in the order applied:",
+      long = long,
+      width = width
+    ),
+    .format_exclusions(
+      deferred,
+      title = "Deferred exclusion rules, not applied to these data:",
+      long = long,
+      width = width,
+      first = length(applied) + 1L
+    ),
+    if (!long && length(c(applied, deferred)) > 0L) {
+      c("", "Print with `exclusions = \"long\"` to show the rule descriptions.")
+    }
+  )
+}
+
+
+#' Format exclusion records for printing
+#'
+#' @param records List of exclusion records, as made by [record_exclusion()].
+#'   A record may also name the analysis set it leads to, in `set`.
+#' @param title Character(1). Line above the records.
+#' @param long Logical(1). Should each record show its description, wrapped
+#'   below its name and separated from the next record by an empty line?
+#' @param width Integer(1). Width at which lines are wrapped.
+#' @param first Integer(1). Number of the first record.
+#'
+#' @returns A character vector of lines; empty if there are no records.
+#'
+#' @noRd
+.format_exclusions <- function(records, title, long, width, first = 1L) {
+  if (length(records) == 0L) {
+    return(character())
+  }
+
+  lines <- lapply(seq_along(records), \(i) {
+    e <- records[[i]]
+    name <- sprintf(
+      "%d. %s (n = %d)%s",
+      first + i - 1L,
+      e$rule,
+      as.integer(e$n),
+      if (!is.null(e$set)) sprintf(", leading to the %s set", e$set) else ""
+    )
+    c(
+      if (long) "",
+      strwrap(name, width = width, indent = 2L, exdent = 5L),
+      if (long) strwrap(e$description, width = width, indent = 5L, exdent = 5L)
+    )
+  })
+
+  c("", title, unlist(lines))
 }
 
 
 #' Print a `catlas_provenance` record
 #'
 #' @param x A `catlas_provenance` object.
-#' @param ... Passed to [format.catlas_provenance()].
+#' @param ... Passed to [format.catlas_provenance()], e.g.
+#'   `exclusions = "long"` to show the description of every exclusion rule.
 #'
 #' @returns `x` invisibly.
 #'
 #' @export
 print.catlas_provenance <- function(x, ...) {
   cat(format(x, ...), sep = "\n")
-
-  if (length(x$exclusions) > 0L) {
-    cat("\n")
-    for (e in x$exclusions) {
-      cat(sprintf("  - %s: %s (n = %d)\n", e$rule, e$description, e$n))
-    }
-  }
-
   invisible(x)
 }
 

@@ -65,7 +65,15 @@ format.catlas_rawdata <- function(x, ...) {
         paste(prov$collected_between[["first"]], "to", prov$collected_between[["last"]])
       }
     ),
-    sprintf("  exclusions : %d rule(s) applied", length(prov$exclusions))
+    sprintf(
+      "  exclusions : %d rule(s) applied%s",
+      length(prov$exclusions),
+      if (length(prov$deferred_exclusions) > 0L) {
+        sprintf(", %d deferred", length(prov$deferred_exclusions))
+      } else {
+        ""
+      }
+    )
   )
 }
 
