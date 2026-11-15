@@ -7,7 +7,9 @@
 #' tree, where one careless `git add` would publish it.
 #'
 #' @param x A data frame.
-#' @param file Character(1). A file name, without any directory part.
+#' @param file Character(1). Path of the file within the private folder. It is
+#'   a file name, optionally preceded by subfolders separated by `/`, e.g.
+#'   `"fba-allergy-online-02/naive.rds"`. Absolute paths and `..` are refused.
 #' @param dir Character(1). The private folder. Defaults to the environment
 #'   variable `CATLAS_PRIVATE_DIR`, which belongs in `.Renviron`.
 #' @param overwrite Logical(1). Replace an existing file? Defaults to `FALSE`.
@@ -15,10 +17,19 @@
 #' @returns The path of the written file, invisibly.
 #'
 #' @details
+#' ## Repositories
+#'
 #' A folder counts as inside a repository when it, or any folder above it,
 #' contains a `.git` entry. Checking for the entry rather than calling `git`
 #' works without git installed and also recognises worktrees and submodules,
 #' whose `.git` is a file.
+#'
+#' ## Study folders
+#'
+#' Keep the files of each study in a subfolder of the private folder named by
+#' its study identifier, e.g. `"fba-allergy-online-02/naive.rds"`. Missing
+#' subfolders are created when writing. The folder to which the file is saved
+#' must lie inside the private folder and outside every repository.
 #'
 #' @export
 write_private_csv <- function(
@@ -85,8 +96,8 @@ write_private_rds <- function(
 #' personal data found there are one `git add` away from being published and
 #' should thus be moved first.
 #'
-#' A missing file yields an error that lists the `.rds` files the folder really
-#' does contain.
+#' A missing file yields an error that lists the `.rds` files the folder (or
+#' study folder) really does contain.
 #'
 #' @seealso [write_private_rds()]
 #'
@@ -99,12 +110,18 @@ read_private_rds <- function(file, dir = Sys.getenv("CATLAS_PRIVATE_DIR")) {
 
 #' Resolve and guard a path in the private folder
 #'
-#' Checks that `file` is a bare file name, that `dir` is provided, exists and
-#' lies outside every git work tree. When writing, an existing file is replaced
-#' only on request; when reading, the file must exist.
+#' Checks that `file` is a relative path within the private folder, i.e., a
+#' file name optionally preceded by subfolders, and that `dir` is provided,
+#' exists and lies outside every git work tree. When writing, missing
+#' subfolders are created and an existing file is replaced only on request;
+#' when reading, the file must exist. In both cases, the folder containing the
+#' file must still lie inside `dir`, and outside every git work tree, once
+#' symbolic links are followed, so that a subfolder linking elsewhere cannot
+#' lead personal data out of the private folder or into a repository. When
+#' writing, this is checked before any missing subfolder is created.
 #'
 #' @inheritParams write_private_csv
-#' @param read Logical(1). Should the function eesolve the path for reading
+#' @param read Logical(1). Should the function resolve the path for reading
 #'   rather than writing?
 #' @param call Environment for error reporting.
 #'
@@ -118,20 +135,16 @@ read_private_rds <- function(file, dir = Sys.getenv("CATLAS_PRIVATE_DIR")) {
     read = FALSE,
     call = rlang::caller_env()
 ) {
-  if (!is.character(file) || length(file) != 1L || is.na(file) ||
-      !nzchar(file) || basename(file) != file) {
-    cli::cli_abort(c(
-            "`file` must be a bare file name.",
-      "x" = "Received {.val {file}}.",
-      "i" = "Choose the folder with `dir`, not as a part of `file`."
-    ), call = call)
-  }
+  parts <- .private_file_parts(file, call = call)
 
-  if (!is.character(dir) || length(dir) != 1L || is.na(dir) || !nzchar(dir)) {
+  if (!rlang::is_string(dir) || !nzchar(dir)) {
     cli::cli_abort(c(
             "No private folder given.",
-      "i" = "Set {.envvar CATLAS_PRIVATE_DIR} in {.file .Renviron} to a folder outside every repository, then restart R.",
-      "i" = "{.code usethis::edit_r_environ()} opens the file."
+      "i" = paste(
+        "Set {.envvar CATLAS_PRIVATE_DIR} in {.file .Renviron} to a folder",
+        "outside every repository, then restart R."
+      ),
+      "i" = "Use {.code usethis::edit_r_environ()} to open the file."
     ), call = call)
   }
 
@@ -143,38 +156,59 @@ read_private_rds <- function(file, dir = Sys.getenv("CATLAS_PRIVATE_DIR")) {
   }
 
   dir <- normalizePath(dir, winslash = "/", mustWork = TRUE)
-  repo <- .find_git_root(dir)
-  if (!is.null(repo)) {
-    cli::cli_abort(c(
-      if (read) {
-        "Refusing to read personal data from inside a git repository."
-      } else {
-        "Refusing to write personal data inside a git repository."
-      },
-      "x" = "{.path {dir}} lies inside {.path {repo}}.",
-      "i" = "Point `dir`, or {.envvar CATLAS_PRIVATE_DIR}, to a folder outside every repository."
-    ), call = call)
-  }
+  .refuse_git_folder(dir, read = read, call = call)
 
-  path <- file.path(dir, file)
+  path <- paste(c(dir, parts), collapse = "/")
+  folder <- dirname(path)
 
   if (read) {
     if (!file.exists(path)) {
-      present <- list.files(dir, pattern = "[.]rds$")
+      present <- if (dir.exists(folder)) {
+        list.files(folder, pattern = "[.]rds$")
+      } else {
+        character()
+      }
       cli::cli_abort(c(
               "The file was not found in the private folder.",
         "x" = "{.path {path}}",
-        "i" = if (length(present) > 0L) {
-          "{.file .rds} files there: {.file {present}}."
+        "i" = if (!dir.exists(folder)) {
+          "The folder {.path {folder}} does not exist."
+        } else if (length(present) > 0L) {
+          "{.file .rds} files in {.path {folder}}: {.file {present}}."
         } else {
-          "The folder holds no {.file .rds} file."
+          "The folder {.path {folder}} contains no {.file .rds} file."
         }
       ), call = call)
     }
-    return(path)
   }
 
-  if (file.exists(path) && !isTRUE(overwrite)) {
+  # Follow symbolic links from the deepest folder that exists, before creating
+  # any missing subfolder, so that nothing is created through a link either
+  existing <- folder
+  while (!dir.exists(existing)) {
+    existing <- dirname(existing)
+  }
+  real <- normalizePath(existing, winslash = "/", mustWork = TRUE)
+  if (!identical(real, dir) && !startsWith(real, paste0(dir, "/"))) {
+    cli::cli_abort(c(
+            "The file must stay inside the private folder.",
+      "x" = paste(
+        "{.path {existing}} is a symbolic link to {.path {real}}, or lies in",
+        "one."
+      ),
+      "i" = paste(
+        "Keep the study folders as ordinary folders inside the private folder,",
+        "not as links to folders elsewhere."
+      )
+    ), call = call)
+  }
+  .refuse_git_folder(real, read = read, call = call)
+
+  if (!read && !dir.exists(folder)) {
+    dir.create(folder, recursive = TRUE)
+  }
+
+  if (!read && file.exists(path) && !isTRUE(overwrite)) {
     cli::cli_abort(c(
             "The file already exists.",
       "x" = "{.path {path}}",
@@ -183,6 +217,84 @@ read_private_rds <- function(file, dir = Sys.getenv("CATLAS_PRIVATE_DIR")) {
   }
 
   path
+}
+
+
+#' Split and check a path within the private folder
+#'
+#' @param file Object to check: a file name, optionally preceded by subfolders
+#'   separated by `/`.
+#' @param call Environment for error reporting.
+#'
+#' @returns Character. The components of `file`, e.g.
+#'   `c("fba-allergy-online-02", "naive.rds")`.
+#'
+#' @noRd
+.private_file_parts <- function(file, call = rlang::caller_env()) {
+  valid <- rlang::is_string(file) && nzchar(file)
+
+  parts <- if (valid) {
+    strsplit(file, "/", fixed = TRUE)[[1L]]
+  } else {
+    character()
+  }
+
+  valid <- valid &&
+    !startsWith(file, "/") &&
+    !endsWith(file, "/") &&
+    !startsWith(file, "~") &&
+    !grepl("\\", file, fixed = TRUE) &&
+    !grepl("^[A-Za-z]:", file) &&
+    !any(parts %in% c("", ".", ".."))
+
+  if (!valid) {
+    cli::cli_abort(c(
+      paste(
+        "`file` must be a file name, optionally preceded by subfolders of the",
+        "private folder."
+      ),
+      "x" = "Received {.val {file}}.",
+      "i" = paste(
+        "Separate subfolders with {.code /} and do not use {.code ..},",
+        "e.g. {.file fba-allergy-online-02/naive.rds} is a valid `file` input."
+      ),
+      "i" = "Choose the private folder itself with `dir`."
+    ), call = call)
+  }
+
+  parts
+}
+
+
+#' Refuse a folder inside a git work tree
+#'
+#' @param folder Character(1). A normalised, existing folder.
+#' @param read Logical(1). Whether the caller reads (`TRUE`) or writes.
+#' @param call Environment for error reporting.
+#'
+#' @returns `folder` invisibly, if it lies outside every git work tree;
+#'   otherwise an informative error.
+#'
+#' @noRd
+.refuse_git_folder <- function(folder, read, call = rlang::caller_env()) {
+  repo <- .find_git_root(folder)
+
+  if (!is.null(repo)) {
+    cli::cli_abort(c(
+      if (read) {
+        "Refusing to read personal data from inside a git repository."
+      } else {
+        "Refusing to write personal data inside a git repository."
+      },
+      "x" = "{.path {folder}} lies inside {.path {repo}}.",
+      "i" = paste(
+        "Point `dir`, or {.envvar CATLAS_PRIVATE_DIR}, to a folder outside",
+        "every repository."
+      )
+    ), call = call)
+  }
+
+  invisible(folder)
 }
 
 

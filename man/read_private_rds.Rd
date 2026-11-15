@@ -7,7 +7,9 @@
 read_private_rds(file, dir = Sys.getenv("CATLAS_PRIVATE_DIR"))
 }
 \arguments{
-\item{file}{Character(1). A file name, without any directory part.}
+\item{file}{Character(1). Path of the file within the private folder. It is
+a file name, optionally preceded by subfolders separated by \code{/}, e.g.
+\code{"fba-allergy-online-02/naive.rds"}. Absolute paths and \code{..} are refused.}
 
 \item{dir}{Character(1). The private folder. Defaults to the environment
 variable \code{CATLAS_PRIVATE_DIR}, which belongs in \code{.Renviron}.}
@@ -28,8 +30,8 @@ folder inside a repository is refused for writing as well as reading, because
 personal data found there are one \verb{git add} away from being published and
 should thus be moved first.
 
-A missing file yields an error that lists the \code{.rds} files the folder really
-does contain.
+A missing file yields an error that lists the \code{.rds} files the folder (or
+study folder) really does contain.
 }
 \seealso{
 \code{\link[=write_private_rds]{write_private_rds()}}

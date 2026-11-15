@@ -14,7 +14,9 @@ write_private_rds(
 \arguments{
 \item{x}{Any R object, typically a \code{catlas_rawdata} bundle.}
 
-\item{file}{Character(1). A file name, without any directory part.}
+\item{file}{Character(1). Path of the file within the private folder. It is
+a file name, optionally preceded by subfolders separated by \code{/}, e.g.
+\code{"fba-allergy-online-02/naive.rds"}. Absolute paths and \code{..} are refused.}
 
 \item{dir}{Character(1). The private folder. Defaults to the environment
 variable \code{CATLAS_PRIVATE_DIR}, which belongs in \code{.Renviron}.}
@@ -31,10 +33,21 @@ object as \code{.rds} to a private folder, with the same guards as
 \code{\link[=write_private_csv]{write_private_csv()}}.
 }
 \details{
+\subsection{Repositories}{
+
 A folder counts as inside a repository when it, or any folder above it,
 contains a \code{.git} entry. Checking for the entry rather than calling \code{git}
 works without git installed and also recognises worktrees and submodules,
 whose \code{.git} is a file.
+}
+
+\subsection{Study folders}{
+
+Keep the files of each study in a subfolder of the private folder named by
+its study identifier, e.g. \code{"fba-allergy-online-02/naive.rds"}. Missing
+subfolders are created when writing. The folder to which the file is saved
+must lie inside the private folder and outside every repository.
+}
 }
 \seealso{
 \code{\link[=write_private_csv]{write_private_csv()}}, \code{\link[=read_private_rds]{read_private_rds()}}
