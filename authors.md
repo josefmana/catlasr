@@ -8,7 +8,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/josefmana/catlasr/blob/main/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/josefmana/catlasr/blob/v0.0.1/DESCRIPTION)
 
 Mana J (2026). *catlasr: R Infrastructure for CATLAS Experimental
 Learning Research*. R package version 0.0.1,
