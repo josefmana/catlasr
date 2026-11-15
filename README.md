@@ -1,5 +1,9 @@
 # catlasr
 
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/josefmana/catlasr/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/josefmana/catlasr/actions/workflows/R-CMD-check.yaml)
+<!-- badges: end -->
+
 R infrastructure for the [CATLAS](https://github.com/josefmana/CATLAS) project:
 the code engine that imports, validates and scores the data of the CATLAS
 experiments, while CATLAS itself contains the manuscripts and analysis
