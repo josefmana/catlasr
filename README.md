@@ -82,9 +82,9 @@ in `.Renviron`, with one subfolder per study.
 
 ## Vignettes
 
-- [*Importing the Forward Blocking Replication Pilot from JATOS*](vignettes/import-jatos-data.Rmd):
+- [*Importing the Forward Blocking Replication Pilot from JATOS*](https://josefmana.github.io/catlasr/articles/import-jatos-data.html):
   the import of the pilot `fba-allergy-online-01`, step by step.
-- [*Generating Stimuli for the Allergist Task*](vignettes/stimuli-allergist-task.Rmd):
+- [*Generating Stimuli for the Allergist Task*](https://josefmana.github.io/catlasr/articles/stimuli-allergist-task.html):
   the image generation code for `fba-allergy-online-01` and
   `fba-allergy-online-02` study materials.
 
