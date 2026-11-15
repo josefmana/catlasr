@@ -35,13 +35,11 @@ Suggests:
     jatosR,
     knitr,
     osfr,
-    readr,
     rmarkdown,
     sessioninfo,
-    stringr,
-    tidyverse
+    stringr
 Remotes:
     visionlabels/jatosR
 Depends: 
-    R (>= 4.5)
+    R (>= 4.3)
 VignetteBuilder: knitr
