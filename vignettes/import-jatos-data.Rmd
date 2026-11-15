@@ -52,7 +52,7 @@ came from.
   via `remotes::install_github("visionlabels/jatosR")`
 - [`{jsonlite}`](https://github.com/jeroen/jsonlite.git)
 - A private folder outside every repository, named by `CATLAS_PRIVATE_DIR` in
-  your `.Renviron`, holding `fba-allergy-online-01-meta-corrections.rds` (see
+  your `.Renviron`, holding `fba-allergy-online-01/meta-corrections.rds` (see
   [Corrected self-reports](#corrected-self-reports))
 
 The raw data contain personal information, namely the participants' age, sex
@@ -376,7 +376,7 @@ The counts above describe the records as collected, before this correction.
 ```{r meta-corrections}
 meta <- rows_update(
   meta,
-  read_private_rds("fba-allergy-online-01-meta-corrections.rds"),
+  read_private_rds("fba-allergy-online-01/meta-corrections.rds"),
   by = "id"
 )
 ```
@@ -658,7 +658,7 @@ The provenance record now carries the three rules together with their verbal
 description and the number of participants each removed:
 
 ```{r exclusions}
-provenance(fba)
+print(provenance(fba), exclusions = "long")
 ```
 
 ### Data bundle rebuild
@@ -816,20 +816,21 @@ fba_naive <- fba
 ## 9. Save
 
 With the import finished, four bundles can be saved for use by other code,
-such as the `CATLAS` notebooks:
+such as the `CATLAS` notebooks, into the study folder `fba-allergy-online-01`
+of the private folder:
 
 | File | Bundle | Use |
 | :--- | :-- | :-- |
-| `fba-allergy-online-01-imported.rds` | before any exclusion | attrition and feasibility |
-| `fba-allergy-online-01-structural.rds` | after the structural exclusions | full-sample sensitivity analysis |
-| `fba-allergy-online-01-screened.rds` | after the learning-based exclusions | primary analysis |
-| `fba-allergy-online-01-naive.rds` | after the prior-knowledge exclusion | naive-set sensitivity analysis |
+| `fba-allergy-online-01/imported.rds` | before any exclusion | attrition and feasibility |
+| `fba-allergy-online-01/structural.rds` | after the structural exclusions | full-sample sensitivity analysis |
+| `fba-allergy-online-01/screened.rds` | after the learning-based exclusions | primary analysis |
+| `fba-allergy-online-01/naive.rds` | after the prior-knowledge exclusion | naive-set sensitivity analysis |
 
 ```{r save, eval = can_run && isTRUE(params$save)}
-write_private_rds(fba_imported,   "fba-allergy-online-01-imported.rds",   overwrite = TRUE)
-write_private_rds(fba_structural, "fba-allergy-online-01-structural.rds", overwrite = TRUE)
-write_private_rds(fba_screened,   "fba-allergy-online-01-screened.rds",   overwrite = TRUE)
-write_private_rds(fba_naive,      "fba-allergy-online-01-naive.rds",      overwrite = TRUE)
+write_private_rds(fba_imported,   "fba-allergy-online-01/imported.rds",   overwrite = TRUE)
+write_private_rds(fba_structural, "fba-allergy-online-01/structural.rds", overwrite = TRUE)
+write_private_rds(fba_screened,   "fba-allergy-online-01/screened.rds",   overwrite = TRUE)
+write_private_rds(fba_naive,      "fba-allergy-online-01/naive.rds",      overwrite = TRUE)
 ```
 
 ## Session info

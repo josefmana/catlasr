@@ -6,7 +6,8 @@
 # for administration (contacting participants), never for analysis, and must
 # never sit next to the data or inside a repository.
 #
-# The CSV goes to the folder named by `CATLAS_PRIVATE_DIR` in `.Renviron`
+# The CSV goes to the study folder `fba-allergy-online-01` of the private
+# folder, named by `CATLAS_PRIVATE_DIR` in `.Renviron`
 # (`usethis::edit_r_environ()`); `write_private_csv()` refuses any folder
 # inside a git work tree.
 #
@@ -53,7 +54,7 @@ emails <-
 
 path <- write_private_csv(
   emails,
-  file = "fba-allergy-online-01-emails.csv",
+  file = "fba-allergy-online-01/emails.csv",
   overwrite = TRUE
 )
 
