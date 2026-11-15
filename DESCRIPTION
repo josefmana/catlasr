@@ -11,6 +11,8 @@ Description: Provides datasets, modelling interfaces, and research utilities for
     learning models (TBA) and utilities for producing reproducible analyses and
     publication-ready outputs.
 License: MIT + file LICENSE
+URL: https://github.com/josefmana/catlasr, https://josefmana.github.io/catlasr/
+BugReports: https://github.com/josefmana/catlasr/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3

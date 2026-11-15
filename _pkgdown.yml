@@ -1,4 +1,76 @@
-url: ~
+url: https://josefmana.github.io/catlasr/
+
 template:
   bootstrap: 5
 
+# `main` branch contains released versions only, and the site is built from
+# it, so its root always documents the latest release
+development:
+  mode: release
+
+reference:
+  - title: Import from JATOS
+    desc: Download study results from JATOS and turn them into trial tables.
+    contents:
+      - pull_jatos_batches
+      - parse_jatos_results
+      - repair_jatos_json
+
+  - title: Data bundles and provenance
+    desc: >
+      Build, validate and inspect forward-blocking data bundles, and record
+      where the data come from and which participants were excluded.
+    contents:
+      - build_provenance
+      - build_fba_rawdata
+      - validate_fba_rawdata
+      - record_exclusion
+      - provenance
+      - extract_meta
+      - extract_stimuli
+      - extract_trials
+      - fba_cues_map
+      - format.catlas_rawdata
+      - print.catlas_rawdata
+      - format.catlas_provenance
+      - print.catlas_provenance
+
+  - title: Personal data
+    desc: >
+      Keep personal data in a private folder outside every repository, replace
+      platform identifiers with random IDs, and code free-text answers.
+    contents:
+      - write_private_rds
+      - write_private_csv
+      - read_private_rds
+      - update_id_key
+      - write_debrief_coding
+      - read_debrief_coding
+
+  - title: Learning check
+    contents:
+      - score_learning
+      - test_learning
+      - screen_learning
+      - aggregate_learning
+      - plot_learning
+
+  - title: Blocking indices
+    contents:
+      - score_blocking
+      - index_blocking
+      - aggregate_blocking
+      - plot_blocking
+
+  - title: Data collection monitoring
+    contents:
+      - trace_progress
+
+  - title: Stimuli
+    desc: Compose the cue and outcome images of the allergist task.
+    contents:
+      - catlas_stimulus
+      - render_stimulus
+      - render_stimulus.catlas_stimulus
+      - print.catlas_stimulus
+      - write_stimulus
