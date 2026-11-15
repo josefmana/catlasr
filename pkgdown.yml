@@ -4,7 +4,7 @@ pkgdown_sha: ~
 articles:
   import-jatos-data: import-jatos-data.html
   stimuli-allergist-task: stimuli-allergist-task.html
-last_built: 2026-11-15T15:47Z
+last_built: 2026-11-15T16:27Z
 urls:
   reference: https://josefmana.github.io/catlasr/reference
   article: https://josefmana.github.io/catlasr/articles
