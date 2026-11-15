@@ -1,6 +1,6 @@
 Package: catlasr
 Title: R Infrastructure for CATLAS Experimental Learning Research
-Version: 0.0.1
+Version: 0.0.1.9000
 Authors@R: 
     person("Josef", "Mana", , "josef.mana@protonmail.com", role = c("aut", "cre"), comment = c(ORCID = "0000-0002-7817-3978"))
 Description: Provides datasets, modelling interfaces, and research utilities for
